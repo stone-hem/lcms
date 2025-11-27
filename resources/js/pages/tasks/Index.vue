@@ -8,6 +8,8 @@ import ViewTaskModal from '@/components/tasks/ViewTaskModal.vue'
 import { Head, router } from '@inertiajs/vue3'
 import { ref, computed, watch } from 'vue'
 import { Menu, Search, Plus, Filter, Star, CheckCircle2, Clock, AlertCircle } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button';
+
 
 const props = defineProps<{
   tasks: any

@@ -33,11 +33,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('reports.case_reports');
 
     Route::get('/cases_by_lawyer_report', [ReportController::class, 'cases_by_lawyer_report'])->name('reports.reports_by_lawyer');
-    Route::get('calender/{start_date}/{end_date}', [CalenderController::class, 'get_calender'])->name('calender.master');
+    Route::get('/calendar/master', [CalenderController::class, 'get_master_calendar'])->name('calendar.master');
+    Route::get('/calendar/mine', [CalenderController::class, 'get_my_calendar'])->name('calendar.mine');
+
     Route::get('/task/kanban', [TaskController::class, 'get_kanban_view'])->name('kanban.index');
 
 
-    Route::get('/calender/{start_date}/{end_date}', [CalenderController::class, 'get_calender'])->name('calender.index');
 
     Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');
 

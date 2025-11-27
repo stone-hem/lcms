@@ -46,11 +46,14 @@ class TaskController extends Controller
             $value['id'] = $value['value'];
             array_push($content, $value);
         }
-        return $content;
+        
+        return Inertia::render('tasks/Kanban', [
+            "content" => $content
+        ]);
     }
 
     // app/Http/Controllers/TaskController.php
-    
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -58,7 +61,7 @@ class TaskController extends Controller
         $search = $request->s ?? '';
         $status = $request->status ?? 'all'; // 'all', 'open', 'in_progress', 'completed', 'favourite'
         $caseId = $request->csid ?? null;
-    
+
         // Get tasks where user is creator OR assignee
         $taskIds = Task::where('user_id', $user->id)
             ->pluck('id')
@@ -66,17 +69,17 @@ class TaskController extends Controller
                 TaskAssignees::where('user_id', $user->id)->pluck('task_id')
             )
             ->unique();
-    
+
         $query = Task::with(['assignees:user_id,first_name,last_name', 'attachments', 'legal_case:id,case_number,title'])
             ->whereIn('id', $taskIds);
-    
+
         // Status filter
         if ($status === 'open') $query->where('status', 0);
         if ($status === 'in_progress') $query->where('status', 1);
         if ($status === 'completed') $query->where('status', 2);
         if ($status === 'favourite') $query->whereJsonContains('faved_by', $user->id);
         if ($caseId && $caseId != -1) $query->where('legal_case_id', $caseId);
-    
+
         // Search
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -84,10 +87,10 @@ class TaskController extends Controller
                   ->orWhere('description', 'LIKE', "%{$search}%");
             });
         }
-    
+
         $total = $query->count();
         $tasks = $query->latest()->paginate($perPage);
-    
+
         return Inertia::render('tasks/Index', [
             'tasks' => $tasks,
             'filters' => $request->only(['s', 'status', 'csid']),
@@ -149,7 +152,7 @@ class TaskController extends Controller
             "is_external_counsel",
             "first_name",
             "middle_name",
-            "last_name", 
+            "last_name",
             "email",
             "calling_code",
             "phone"
@@ -182,7 +185,7 @@ class TaskController extends Controller
 
         $cases = LegalCase::select(
             "id",
-            "serial_number", 
+            "serial_number",
             "title",
             "court_name",
             "title",

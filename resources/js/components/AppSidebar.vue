@@ -60,12 +60,12 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'Master Calendar',
-        href: '/calender/{start_date}/{end_date}', // You'll need to handle dynamic params
+        href: '/calendar/master',
         icon: CalendarDays,
     },
     {
         title: 'My Calendar',
-        href: '/calender/{start_date}/{end_date}', // You'll need to handle dynamic params
+        href: '/calendar/mine',
         icon: CalendarCheck,
     },
     {
