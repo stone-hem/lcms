@@ -7,6 +7,7 @@ use App\Models\DocumentTemplate;
 use App\Models\DocumentTypes;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class KnowledgeBaseController extends Controller
 {
@@ -14,124 +15,86 @@ class KnowledgeBaseController extends Controller
 
     public function document_templates(Request $request)
     {
-        $items_per_page = $request->ipp ?? 10; //default items per page is 10
-        $search_query = $request->s ?? "";
-        $page = $request->p ?? 0;
-        $sort_by = $request->sort_by ?? "created_at";
-        $order_by = $request->order_by ?? "asc";
-        $start_date = $request->sd ?? "";
-        $end_date = $request->ed ?? "";
-
-        $items = DocumentTemplate::with("document_type")->withTrashed();
-        if ($search_query) {
-            $title_where_array = QueryHelper::get_where_clause_with_match_mode(
-                "contains",
-                $search_query,
-                "document_templates.title"
-            );
-            $description_where_array = QueryHelper::get_where_clause_with_match_mode(
-                "contains",
-                $search_query,
-                "document_templates.description"
-            );
-            $items = $items->whereNested(function ($query) use (
-                $description_where_array,
-                $title_where_array
-            ) {
-                $query
-                    ->orWhere([$description_where_array])
-                    ->orWhere([$title_where_array]);
+        $perPage = $request->ipp ?? 10;
+        $search = $request->s ?? '';
+        $offset = $request->p ?? 0;
+    
+        $query = DocumentTemplate::with('document_type')->withTrashed();
+    
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'LIKE', "%{$search}%")
+                  ->orWhere('description', 'LIKE', "%{$search}%");
             });
         }
-        $item_count = $items->count();
-        $items = $items->skip($page)->take($items_per_page);
-        if ($sort_by) {
-            $items = $items->orderBy($sort_by, $order_by);
-        }
-
-        $items = $items->get();
-
-        return [
-            "total_count" => $item_count,
-            "items" => $items,
-            // "status_" => $status,
-        ];
+    
+        $total = $query->count();
+        $items = $query->skip($offset)->take($perPage)->get();
+    
+        return Inertia::render('files/DocumentTemplates', [
+            'items' => $items,
+            'item_count' => $total,
+            'baseFilePath' => asset('storage/templates/'),
+            'presets' => [
+                'document_types' => DocumentTypes::all()
+            ]
+        ]);
     }
-
-    public function presets(Request $request)
-    {
-        $document_types = DocumentTypes::all();
-        $base_file_path = asset('storage') . '/uploads/temp/';
-        return [
-            "base_file_path" => $base_file_path,
-            "document_types" => $document_types,
-        ];
-    }
-
-
-
+    
     public function store_document_template(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            "title" => "required|min:2|unique:document_templates",
-            "type" => "required",
-            "upload_files" => "required"
+        $request->validate([
+            'title' => 'required|min:2|unique:document_templates',
+            'document_type_id' => 'required|exists:document_types,id',
+            'file' => 'required|file|max:10240',
+            'file_name' => 'nullable|string|max:255',
+            'file_description' => 'nullable|string'
         ]);
-        if ($validator->fails()) {
-            return response()->json(
-                [
-                    "error" => true,
-                    "message" => $validator->errors()->toArray(),
-                ],
-                422
-            );
-        }
-
-        $item = new DocumentTemplate();
-        $item->title = $request->input("title");
-        $item->description = $request->input("description");
-        $item->document_type_id = $request->type;
-        $item->templates = $request->upload_files;
-        $item->save();
-
-        return response()->json(
-            [
-                "error" => false,
-                "message" => "Document template added successfully",
-                "item" => DocumentTemplate::with("document_type")->find($item->id),
-            ],
-            200
-        );
+    
+        $path = $request->file('file')->store('templates', 'public');
+    
+        $template = DocumentTemplate::create([
+            'title' => $request->title,
+            'description' => $request->description,
+            'document_type_id' => $request->document_type_id,
+        ]);
+    
+        $template->templates()->create([
+            'file_name' => $request->file_name ?: $request->file('file')->getClientOriginalName(),
+            'file_path' => $path,
+            'description' => $request->file_description,
+            'size' => $request->file('file')->getSize(),
+            'extension' => $request->file('file')->extension()
+        ]);
+    
+        return back()->with('success', 'Template created.');
     }
-
+    
     public function update_document_template(Request $request, $id)
     {
-
-        $this->validate($request, [
-            "title" => "required|min:2|unique:document_templates,title," . $id,
-            "upload_files" => "required",
-            "type" => "required",
-
-            "id" => "required",
+        $template = DocumentTemplate::withTrashed()->findOrFail($id);
+    
+        $request->validate([
+            'title' => 'required|min:2|unique:document_templates,title,' . $id,
+            'document_type_id' => 'required|exists:document_types,id',
+            'file_name' => 'nullable|string',
+            'file_description' => 'nullable|string'
         ]);
-
-
-
-        $item = DocumentTemplate::withTrashed()->find($request->id);
-        $item->title = $request->input("title");
-        $item->description = $request->input("description");
-        $item->document_type_id = $request->type;
-        $item->templates = $request->upload_files;
-        $item->save();
-
-        return response()->json(
-            [
-                "error" => false,
-                "message" => "Document template updated successfully",
-                "item" =>  DocumentTemplate::with("document_type")->find($item->id),
-            ],
-            200
-        );
+    
+        $template->update([
+            'title' => $request->title,
+            'description' => $request->description,
+            'document_type_id' => $request->document_type_id,
+        ]);
+    
+        if ($template->templates()->exists()) {
+            $template->templates()->update([
+                'file_name' => $request->file_name,
+                'description' => $request->file_description
+            ]);
+        }
+    
+        return back()->with('success', 'Template updated.');
     }
 
     public function activate_document_template($id)

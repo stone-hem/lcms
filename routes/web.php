@@ -63,7 +63,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/internal_council', [UserController::class, 'internal_counsel'])->name('council.internal');
 
-    Route::get('/knowledge_base/document_templates', [KnowledgeBaseController::class, 'document_templates'])->name('document.templates');
+    Route::get('/knowledge_base/document_templates', [KnowledgeBaseController::class, 'document_templates'])->name('knowledge.templates.index');
 
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::get('/update_user_details', [UserController::class, 'update_user_details']);
