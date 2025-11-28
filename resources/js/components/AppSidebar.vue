@@ -110,7 +110,7 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'Manage',
-        href: '/dashboard', // You might want to create a dedicated manage route
+        href: '/setting/misc', // You might want to create a dedicated manage route
         icon: Settings,
     },
 ];

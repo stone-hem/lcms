@@ -5,6 +5,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\KnowledgeBaseController;
 use App\Http\Controllers\LegalCase\LegalCaseController;
+use App\Http\Controllers\MiscController;
 use App\Http\Controllers\PermissionsAndRolesController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
@@ -82,13 +83,64 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/roles/{role}/permissions', [PermissionsAndRolesController::class, 'assignPermissions'])
         ->name('roles.permissions.assign');
 
-    Route::get('/settings/case_types', [SettingsController::class, 'case_types'])->name('settings.case_types');
-    Route::get('/settings/nature_of_claims', [SettingsController::class, 'nature_of_claims'])->name('settings.nature_of_claims');
-    Route::get('/settings/party_types', [SettingsController::class, 'party_types'])->name('settings.party_types');
-    Route::get('/settings/document_types', [SettingsController::class, 'document_types'])->name('settings.document_types');
-    Route::get('/settings/case_stages', [SettingsController::class, 'case_stages'])->name('settings.case_stages');
-    Route::get('/settings/event_categories', [SettingsController::class, 'event_categories'])->name('settings.event_categories');
-    Route::get('/settings/case_activity_types', [SettingsController::class, 'case_activities'])->name('settings.case_activities');
+    // Main Misc Settings Page
+    Route::get('/setting/misc', [MiscController::class, 'index'])->name('index');
+        
+    // ==================== CASE TYPES ====================
+    Route::post('/case-types', [MiscController::class, 'store_case_type'])->name('store_case_type');
+    Route::put('/case-types/{id}', [MiscController::class, 'update_case_type'])->name('update_case_type');
+    Route::post('/case-types/{id}/activate', [MiscController::class, 'activate_case_type'])->name('activate_case_type');
+    Route::post('/case-types/{id}/deactivate', [MiscController::class, 'deactivate_case_type'])->name('deactivate_case_type');
+    Route::post('/case-types/{id}/delete', [MiscController::class, 'delete_case_type'])->name('delete_case_type');
+        
+    // ==================== NATURE OF CLAIMS ====================
+    Route::post('/nature-of-claims', [MiscController::class, 'store_nature_of_claim'])->name('store_nature_of_claim');
+    Route::put('/nature-of-claims/{id}', [MiscController::class, 'update_nature_of_claim'])->name('update_nature_of_claim');
+    Route::post('/nature-of-claims/{id}/activate', [MiscController::class, 'activate_nature_of_claim'])->name('activate_nature_of_claim');
+    Route::post('/nature-of-claims/{id}/deactivate', [MiscController::class, 'deactivate_nature_of_claim'])->name('deactivate_nature_of_claim');
+    Route::post('/nature-of-claims/{id}/delete', [MiscController::class, 'delete_nature_of_claim'])->name('delete_nature_of_claim');
+        
+    // ==================== PARTY TYPES ====================
+    Route::post('/party-types', [MiscController::class, 'store_party_type'])->name('store_party_type');
+    Route::put('/party-types/{id}', [MiscController::class, 'update_party_type'])->name('update_party_type');
+    Route::post('/party-types/{id}/activate', [MiscController::class, 'activate_party_type'])->name('activate_party_type');
+    Route::post('/party-types/{id}/deactivate', [MiscController::class, 'deactivate_party_type'])->name('deactivate_party_type');
+    Route::post('/party-types/{id}/delete', [MiscController::class, 'delete_party_type'])->name('delete_party_type');
+        
+    // ==================== CASE ACTIVITIES ====================
+    Route::post('/case-activities', [MiscController::class, 'store_case_activity'])->name('store_case_activity');
+    Route::put('/case-activities/{id}', [MiscController::class, 'update_case_activity'])->name('update_case_activity');
+    Route::post('/case-activities/{id}/activate', [MiscController::class, 'activate_case_activity'])->name('activate_case_activity');
+    Route::post('/case-activities/{id}/deactivate', [MiscController::class, 'deactivate_case_activity'])->name('deactivate_case_activity');
+    Route::post('/case-activities/{id}/delete', [MiscController::class, 'delete_case_activity'])->name('delete_case_activity');
+        
+    // ==================== DOCUMENT TYPES ====================
+    Route::post('/document-types', [MiscController::class, 'store_document_type'])->name('store_document_type');
+    Route::put('/document-types/{id}', [MiscController::class, 'update_document_type'])->name('update_document_type');
+    Route::post('/document-types/{id}/activate', [MiscController::class, 'activate_document_type'])->name('activate_document_type');
+    Route::post('/document-types/{id}/deactivate', [MiscController::class, 'deactivate_document_type'])->name('deactivate_document_type');
+    Route::post('/document-types/{id}/delete', [MiscController::class, 'delete_document_type'])->name('delete_document_type');
+        
+    // ==================== CASE STAGES ====================
+    Route::post('/case-stages', [MiscController::class, 'store_case_stage'])->name('store_case_stage');
+    Route::put('/case-stages/{id}', [MiscController::class, 'update_case_stage'])->name('update_case_stage');
+    Route::post('/case-stages/{id}/activate', [MiscController::class, 'activate_case_stage'])->name('activate_case_stage');
+    Route::post('/case-stages/{id}/deactivate', [MiscController::class, 'deactivate_case_stage'])->name('deactivate_case_stage');
+    Route::post('/case-stages/{id}/delete', [MiscController::class, 'delete_case_stage'])->name('delete_case_stage');
+        
+    // ==================== EVENT CATEGORIES ====================
+    Route::post('/event-categories', [MiscController::class, 'store_event_category'])->name('store_event_category');
+    Route::put('/event-categories/{id}', [MiscController::class, 'update_event_category'])->name('update_event_category');
+    Route::post('/event-categories/{id}/activate', [MiscController::class, 'activate_event_category'])->name('activate_event_category');
+    Route::post('/event-categories/{id}/deactivate', [MiscController::class, 'deactivate_event_category'])->name('deactivate_event_category');
+    Route::post('/event-categories/{id}/delete', [MiscController::class, 'delete_event_category'])->name('delete_event_category');
+        
+    // ==================== EXPENSE TYPES ====================
+    Route::post('/expense-types', [MiscController::class, 'store_expense_type'])->name('store_expense_type');
+    Route::put('/expense-types/{id}', [MiscController::class, 'update_expense_type'])->name('update_expense_type');
+    Route::post('/expense-types/{id}/activate', [MiscController::class, 'activate_expense_type'])->name('activate_expense_type');
+    Route::post('/expense-types/{id}/deactivate', [MiscController::class, 'deactivate_expense_type'])->name('deactivate_expense_type');
+    Route::post('/expense-types/{id}/delete', [MiscController::class, 'delete_expense_type'])->name('delete_expense_type');
 
 });
 
