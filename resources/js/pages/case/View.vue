@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { ArrowLeft } from 'lucide-vue-next'
 
 import CaseOverviewTab from '@/components/cases/tabs/CaseOverviewTab.vue'
-import CasePartiesAndFirmsTab from '@/components/cases/tabs/CasePartiesAndFirmsTab.vue'
+import CasePartiesAndFirmsTab from '@/components/cases/parties/CasePartiesAndFirmsTab.vue'
 import CaseActivityTab from '@/components/cases/tabs/CaseActivityTab.vue'
 import CaseTasksTab from '@/components/cases/tabs/CaseTasksTab.vue'
 import CaseNotesTab from '@/components/cases/tabs/CaseNotesTab.vue'
@@ -16,7 +16,8 @@ import CaseAttachmentsTab from '@/components/cases/tabs/CaseAttachmentsTab.vue'
 import CaseCalendarTab from '@/components/cases/tabs/CaseCalendarTab.vue'
 
 const props = defineProps<{
-  case: any
+  case: any,
+  partyTypes: any[]
 }>()
 
 const caseData = props.case
@@ -38,7 +39,6 @@ const activeTab = ref('overview')
 <template>
   <AppLayout>
     <Head :title="`${caseData.title} #${caseData.case_number}`" />
-
     <div class="p-6 space-y-8">
       <!-- Header -->
       <div class="flex items-center justify-between">
@@ -55,8 +55,8 @@ const activeTab = ref('overview')
                 #{{ caseData.case_number }}
               </Badge>
               <span class="text-sm text-muted-foreground">
-                {{ caseData.type?.name || 'Unknown Type' }}
-                • {{ caseData.stage?.name || 'No Stage' }}
+                {{ caseData.case_type?.name || 'Unknown Type' }}
+                • {{ caseData.case_stage?.name || 'No Stage' }}
               </span>
             </div>
           </div>
@@ -99,7 +99,7 @@ const activeTab = ref('overview')
         <!-- Parties & Firms -->
         <div v-show="activeTab === 'parties'">
           <Card>
-            <CasePartiesAndFirmsTab :parties="caseData.individual_parties" :firms="caseData.firm_parties" />
+            <CasePartiesAndFirmsTab :partyTypes="partyTypes" :legalCaseId="caseData.id" :parties="caseData.individual_parties" :firms="caseData.firm_parties" />
           </Card>
         </div>
 

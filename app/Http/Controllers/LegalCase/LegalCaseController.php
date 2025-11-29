@@ -17,7 +17,6 @@ use App\Models\LegalCaseActivities;
 use App\Models\LegalCaseNotes;
 use App\Models\LegalCaseActivityParticipants;
 
-
 use App\Models\LegalCase\CaseStageInformation;
 use App\Models\LegalCase\LegalCaseLawyer;
 use App\Models\LegalFees\ContingentLiability;
@@ -38,9 +37,7 @@ use App\Models\LegalCaseFinalFeeNote;
 use App\Models\LegalCaseInterimFeeNote;
 use App\Models\LegalCaseJudgement;
 use App\Models\LegalCaseProcurementAuthorityDocuments;
-use App\Models\Task;
 use Inertia\Inertia;
-use stdClass;
 
 class LegalCaseController extends Controller
 {
@@ -58,11 +55,7 @@ class LegalCaseController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => true,
-                'message' => $validator->errors()->first(),
-                'payload' => $validator->errors()->toArray()
-            ], 422);
+            return redirect()->back()->withErrors($validator)->withInput();
         }
 
         $lastserial = LegalCase::get()->last();
@@ -77,20 +70,20 @@ class LegalCaseController extends Controller
 
         $dupTitleCount = LegalCase::where(DB::raw('lower(title)'), '=', strtolower($request->title))->count();
         if ($dupTitleCount > 0) {
-            return response()->json(['error' => true, 'message' => "Another case has the same title"], 422);
+            return redirect()->back()->with('error', 'Another case has the same title')->withInput();
         }
         $dupCaseNumberCount = LegalCase::where(DB::raw('lower(case_number)'), '=', strtolower($request->case_number))->count();
         if ($dupCaseNumberCount > 0) {
-            return response()->json(['error' => true, 'message' => "Another case has the same case number"], 422);
+            return redirect()->back()->with('error', 'Another case has the same case number')->withInput();
         }
 
         if ($request->is_internal) {
             if (count($request->lawyer_id) == 0) {
-                return response()->json(['error' => true, 'message' => "No lawyers selected"], 422);
+                return redirect()->back()->with('error', 'No lawyers selected')->withInput();
             }
         } else {
             if (count($request->external_advocate_ids) == 0) {
-                return response()->json(['error' => true, 'message' => "No external advocates selected"], 422);
+                return redirect()->back()->with('error', 'No external advocates selected')->withInput();
             }
         }
 
@@ -103,20 +96,12 @@ class LegalCaseController extends Controller
         $legalcase->mention_date = $request->mention_date;
         $legalcase->user_id = $request->user()->id;
         $legalcase->date_received = $request->date_received;
-        //$legalcase->status = $request->status;
-
         $legalcase->case_stage_id = $request->status;
-
         $legalcase->date_of_filing = $request->date_filed;
         $legalcase->case_number = $request->case_number;
         $legalcase->nature_of_claim_id = $request->nature_of_claim_id;
-        // $legalcase->lawyer_id = $request->lawyer_id;
         $legalcase->is_internal = $request->is_internal;
         $legalcase->completion_date = $request->determination_date;
-
-
-
-        //$legalcase->case_stage_id = 1;
         $legalcase->case_type_id = $request->input('case_type_id');
         $legalcase->year = date("Y");
         $legalcase->save();
@@ -211,7 +196,6 @@ class LegalCaseController extends Controller
             $attachment->save();
         }
 
-
         if ($request->parties != null) {
             foreach ($request->parties as $clientData) {
                 $client = IndividualParty::where('email', strtolower($clientData['email']))->orWhere('phone', strtolower($clientData['phone']))->first();
@@ -227,14 +211,12 @@ class LegalCaseController extends Controller
                 $client->email = strtolower($clientData['email']);
                 $client->physical_address = $clientData['physical_address'];
                 $client->postal_address = $clientData['postal_address'];
-
                 $client->save();
 
                 $case_individual_party = new CaseIndividualParty();
                 $case_individual_party->legal_case_id = $legalcase->id;
                 $case_individual_party->party_type_id = $clientData['party_type'] ? $clientData['party_type']['value'] : null;
                 $case_individual_party->individual_party_id = $client->id;
-
                 $case_individual_party->save();
             }
         }
@@ -248,24 +230,19 @@ class LegalCaseController extends Controller
                 $client->name = $firmData['firm_name'];
                 $client->phone = $firmData['phone'];
                 $client->email = $firmData['email'];
-                $client->physical_address = $clientData['physical_address'];
-                $client->postal_address = $clientData['postal_address'];
-                // $client->location = $firmData['location'];
+                $client->physical_address = $firmData['physical_address'];
+                $client->postal_address = $firmData['postal_address'];
                 $client->save();
 
                 $case_firm_party = new CaseFirmParty();
                 $case_firm_party->legal_case_id = $legalcase->id;
                 $case_firm_party->party_type_id = $firmData['party_type'] ? $firmData['party_type']['value'] : null;
-
                 $case_firm_party->firm_party_id = $client->id;
                 $case_firm_party->save();
             }
         }
 
-
-
-        $item = LegalCase::withTrashed()->with('filed_by','lawyers', 'contingent_liability', 'case_type', 'nature_of_claim', "case_stage","interim_fee_note","final_fee_note","judgement_attachments","dg_approval_attachments")->where("id", $legalcase->id)->first();
-        return redirect()->back()->with('done');
+        return redirect()->back()->with('success', 'Case created successfully');
     }
 
     public function activate($id)
@@ -274,9 +251,8 @@ class LegalCaseController extends Controller
         if ($item) {
             $item->restore();
         }
-        return response()->json(["error" => false, "message" => "Case activated successfully"]);
+        return redirect()->back()->with('success', 'Case activated successfully');
     }
-
 
     public function deactivate($id)
     {
@@ -284,7 +260,7 @@ class LegalCaseController extends Controller
         if ($item) {
             $item->delete();
         }
-        return response()->json(["error" => false, "message" => "Case deactivated successfully"]);
+        return redirect()->back()->with('success', 'Case deactivated successfully');
     }
 
     public function delete($id)
@@ -293,15 +269,14 @@ class LegalCaseController extends Controller
         if ($item) {
             $item->forceDelete();
         }
-        return response()->json(["error" => false, "message" => "Case deactivated successfully"]);
+        return redirect()->back()->with('success', 'Case deleted successfully');
     }
-
 
     public function index(Request $request)
     {
         $user = $request->user();
 
-        $items_per_page = $request->ipp ?? 100; //default items per page is 10
+        $items_per_page = $request->ipp ?? 100;
         $search_query = $request->s ?? "";
         $page = $request->p ?? 0;
 
@@ -310,12 +285,10 @@ class LegalCaseController extends Controller
         $start_date = $request->sd ?? "";
         $end_date = $request->ed ?? "";
 
-
         $items = LegalCase::withTrashed()->with('filed_by', 'lawyers','contingent_liability', 'case_type', 'nature_of_claim', "case_stage","interim_fee_note","final_fee_note","judgement_attachments","dg_approval_attachments","sla");
 
-        if ($user->role_id != 1) { //should be by lawyer
+        if ($user->role_id != 1) {
             $lawyer_cases_ids = LegalCaseLawyer::where('lawyer_id', $user->id)->pluck('legal_case_id')->toArray();
-
             $filed_by_cases_ids = LegalCase::where('user_id', $user->id)->pluck('id')->toArray();
             $ids = array_merge($lawyer_cases_ids, $filed_by_cases_ids);
             $items->whereIn('id', $ids);
@@ -344,12 +317,7 @@ class LegalCaseController extends Controller
 
         $item_count = $items->count();
         $items = $items->skip($page)->take($items_per_page);
-        // if ($sort_by) {
-        //     $items = $items->orderBy($sort_by, $order_by);
-        // }else{
         $items = $items->orderBy('created_at', 'desc');
-
-        //  }
         $items = $items->get();
 
         $case_types =  CaseType::all();
@@ -361,388 +329,29 @@ class LegalCaseController extends Controller
         $external_advocates = User::where('is_external_counsel', 1)->get();
         $base_file_path = asset('storage') . '/uploads/temp/';
 
-
-
-
         return Inertia::render('case/LegalCases', [
-        "total_count" => $item_count,
-        "items" => $items,
-       "presets" =>[
-       "case_types" => $case_types,
-       "nature_of_claim" => $nature_of_claim,
-       "party_types" => $party_types,
-       "base_file_path" => $base_file_path,
-       "case_activities" => $case_activities,
-       "lawyers" => $lawyers,
-       "external_advocates" => $external_advocates,
-       "document_types" => $document_types,
-       "statuses" => CaseStage::all(),
-       ]
+            "total_count" => $item_count,
+            "items" => $items,
+            "presets" => [
+                "case_types" => $case_types,
+                "nature_of_claim" => $nature_of_claim,
+                "party_types" => $party_types,
+                "base_file_path" => $base_file_path,
+                "case_activities" => $case_activities,
+                "lawyers" => $lawyers,
+                "external_advocates" => $external_advocates,
+                "document_types" => $document_types,
+                "statuses" => CaseStage::all(),
+            ]
         ]);
-
-
     }
-
-    public function show($id)
-    {
-        $case = LegalCase::with([
-        'contingent_liability','sla','individual_parties','firm_parties',
-                'case_type', 'nature_of_claim', 'case_stage',
-                'tasks.assignees',
-                'lawyers',
-                'attachments',
-                'procurement_authority_documents',
-                'interim_fee_note',
-                'final_fee_note',
-                'judgement_attachments',
-                'dg_approval_attachments',
-                'events'
-            ])->findOrFail($id);
-            
-            if ($case) {
-                foreach ($case->individual_parties as $key => $value) {
-                    $party = IndividualParty::find($value->individual_party_id);
-                    $value->party = $party;
-                }
-                foreach ($case->firm_parties as $key => $value) {
-                    $party = FirmParty::find($value->firm_party_id);
-                    $value->party = $party;
-                }
-            }
-
-            return Inertia::render('case/View', [
-                'case' => $case
-            ]);
-
-    }
-
-
-
-    function copyAllFieldsToStdClass($model)
-    {
-        $object = new stdClass();
-
-        // Copy all attributes
-        foreach ($model->getAttributes() as $key => $value) {
-            $object->$key = $value;
-        }
-
-        // Include appended attributes (e.g., accessors)
-        foreach ($model->getAppends() as $key) {
-            $object->$key = $model->$key;
-        }
-
-        // Include relationships if needed
-        foreach ($model->getRelations() as $key => $relation) {
-            $object->$key = $relation;
-        }
-
-        return $object;
-    }
-
-
-
-    public function delete_party($id)
-    {
-        IndividualParty::where("id", $id)->delete();
-        return redirect()->back()->with(["error" => false, "message" => "Party successfully deleted"]);
-    }
-    public function delete_firm_party($id)
-    {
-        FirmParty::where("id", $id)->delete();
-        return redirect()->back()->with(["error" => false, "message" => "Firm successfully deleted"]);
-    }
-
-    public function case_parties_and_firms(Request $request, $id)
-    {
-        $parties = [];
-        $firms = [];
-
-        $item = LegalCase::withTrashed()->with('individual_parties', "firm_parties")->where('id', $id)->first();
-
-        if ($item) {
-            foreach ($item->individual_parties as $key => $value) {
-                $party = IndividualParty::find($value->individual_party_id);
-                if ($party) {
-                    $copy = $this->copyAllFieldsToStdClass($party);
-                    $party_type = PartyType::find($value->party_type_id);
-
-                    $copy->party_type = $party_type;
-                    array_push($parties, $copy);
-                }
-            }
-            foreach ($item->firm_parties as $key => $firmValue) {
-                $party = FirmParty::find($firmValue->firm_party_id);
-                if ($party) {
-                    //echo '----Firm party id ----> ' . $value->firm_party_id . ' ---- Party type id ---> ' . $value->party_type_id;
-
-                    $copy = $this->copyAllFieldsToStdClass($party);
-                    // echo json_encode($copy);
-
-                    $party_type = PartyType::find($firmValue->party_type_id);
-                    $copy->party_type = $party_type;
-
-                    array_push($firms, $copy);
-                }
-            }
-        }
-
-        return [
-            "parties" => $parties,
-            "firms" => $firms
-        ];
-    }
-
-    public function edit_case_parties(Request $request, $id)
-    {
-        if ($request->parties != null) {
-            foreach ($request->parties as $clientData) {
-                $client = IndividualParty::find($clientData['id']);
-                if ($client) {
-                    $client->first_name = $clientData['first_name'];
-                    $client->middle_name = $clientData['middle_name'];
-                    $client->last_name = $clientData['last_name'];
-                    $client->phone = strtolower($clientData['phone']);
-                    $client->email = strtolower($clientData['email']);
-                    $client->physical_address = $clientData['physical_address'];
-                    $client->postal_address = $clientData['postal_address'];
-                    $client->save();
-
-
-                    $item = CaseIndividualParty::where('legal_case_id', $id)->where("individual_party_id", $client->id)->first();
-                    if ($item) {
-                        $item->party_type_id = $clientData['party_type'] ? $clientData['party_type']['value'] : null;
-                    }
-                    $item->save();
-                }
-            }
-        }
-
-        $response = [];
-        $item = LegalCase::withTrashed()->with('individual_parties')->where('id', $id)->first();
-
-        if ($item) {
-            foreach ($item->individual_parties as $key => $value) {
-                $party = IndividualParty::find($value->individual_party_id);
-                if ($party) {
-                    $copy = $this->copyAllFieldsToStdClass($party);
-
-                    $party_type = PartyType::find($value->party_type_id);
-                    $copy->party_type = $party_type;
-                    array_push($response, $copy);
-                }
-                //$value->party = $party;
-
-
-                //$value->party_type = $party_type;
-            }
-        }
-
-        return $response;
-    }
-
-
-    public function edit_case_firms(Request $request, $id)
-    {
-        if ($request->firms != null) {
-            foreach ($request->firms as $firmData) {
-                $client = FirmParty::find($firmData['id']);
-                if ($client) {
-                    $client->name = $firmData['firm_name'];
-                    $client->phone = $firmData['phone'];
-                    $client->email = $firmData['email'];
-                    $client->physical_address = $firmData['physical_address'];
-                    $client->postal_address = $firmData['postal_address'];
-                    // $client->location = $firmData['location'];
-                    $client->save();
-
-
-                    $item = CaseFirmParty::where('legal_case_id', $id)->where("firm_party_id", $client->id)->first();
-                    if ($item) {
-                        $item->party_type_id = $firmData['party_type'] ? $firmData['party_type']['value'] : null;
-                    }
-                    $item->save();
-                }
-            }
-        }
-
-        $response = [];
-        $item = LegalCase::withTrashed()->with('firm_parties')->where('id', $id)->first();
-        if ($item) {
-            foreach ($item->firm_parties as $key => $value) {
-                $party = FirmParty::find($value->firm_party_id);
-                if ($party) {
-                    $copy = $this->copyAllFieldsToStdClass($party);
-
-                    $party_type = PartyType::find($value->party_type_id);
-                    $copy->party_type = $party_type;
-                    array_push($response, $copy);
-                }
-            }
-        }
-
-        return $response;
-    }
-
-
-    public function store_case_parties(Request $request, $id)
-    {
-        if ($request->parties != null) {
-            foreach ($request->parties as $clientData) {
-                $client = IndividualParty::where('email', strtolower($clientData['email']))->orWhere('phone', strtolower($clientData['phone']))->first();
-
-                if (!$client) {
-                    $client = new IndividualParty();
-                }
-
-                $client->first_name = $clientData['first_name'];
-                $client->middle_name = $clientData['middle_name'];
-                $client->last_name = $clientData['last_name'];
-                $client->phone = strtolower($clientData['phone']);
-                $client->email = strtolower($clientData['email']);
-                $client->physical_address = $clientData['physical_address'];
-                $client->postal_address = $clientData['postal_address'];
-
-                $client->save();
-
-                $case_individual_party = new CaseIndividualParty();
-                $case_individual_party->legal_case_id = $id;
-                $case_individual_party->party_type_id = $clientData['party_type'] ? $clientData['party_type']['value'] : null;
-                $case_individual_party->individual_party_id = $client->id;
-
-                $case_individual_party->save();
-            }
-        }
-
-        $response = [];
-        $item = LegalCase::withTrashed()->with('individual_parties')->where('id', $id)->first();
-
-        if ($item) {
-            foreach ($item->individual_parties as $key => $value) {
-                $party = IndividualParty::find($value->individual_party_id);
-                if ($party) {
-                    $copy = $this->copyAllFieldsToStdClass($party);
-
-                    $party_type = PartyType::find($value->party_type_id);
-                    $copy->party_type = $party_type;
-                    array_push($response, $copy);
-                }
-                //$value->party = $party;
-
-
-                //$value->party_type = $party_type;
-            }
-        }
-
-        return $response;
-    }
-
-    public function store_case_firms(Request $request, $id)
-    {
-        if ($request->firms != null) {
-            foreach ($request->firms as $firmData) {
-                $client = FirmParty::where('email', strtolower($firmData['email']))->orWhere('phone', strtolower($firmData['phone']))->first();
-
-                if (!$client) {
-                    $client = new FirmParty();
-                }
-
-                $client->name = $firmData['firm_name'];
-                $client->phone = $firmData['phone'];
-                $client->email = $firmData['email'];
-                $client->physical_address = $firmData['physical_address'];
-                $client->postal_address = $firmData['postal_address'];
-                // $client->location = $firmData['location'];
-                $client->save();
-
-
-                $case_firm_party = new CaseFirmParty();
-                $case_firm_party->legal_case_id = $id;
-                $case_firm_party->party_type_id = $firmData['party_type'] ? $firmData['party_type']['value'] : null;
-                $case_firm_party->firm_party_id = $client->id;
-
-                $case_firm_party->save();
-            }
-        }
-
-        $response = [];
-        $item = LegalCase::withTrashed()->with('firm_parties')->where('id', $id)->first();
-
-        if ($item) {
-            foreach ($item->firm_parties as $key => $value) {
-                $party = FirmParty::find($value->firm_party_id);
-                if ($party) {
-                    $copy = $this->copyAllFieldsToStdClass($party);
-
-                    $party_type = PartyType::find($value->party_type_id);
-                    $copy->party_type = $party_type;
-                    array_push($response, $copy);
-                }
-            }
-        }
-
-        return $response;
-    }
-
-
-
-
-    public function add_edit_note(Request $request, $id)
-    {
-        $validator = Validator::make($request->all(), [
-            'note' => 'required',
-        ]);
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => true,
-                'message' => $validator->errors()->first(),
-                'payload' => $validator->errors()->toArray()
-            ], 422);
-        }
-        $legal_case = LegalCase::find($id);
-        if (!$legal_case) {
-            return response()->json([
-                'error' => true,
-                'message' => "Case not found"
-            ], 422);
-        }
-
-        $notes = $legal_case->notes; //could be an array of notes empty
-        if (!$notes) {
-            $legal_case->notes = [$request->note];
-        } else {
-            $found = false;
-            $id = $request->note["id"];
-            $notes_buffer = [];
-            foreach ($notes as $value) {
-                if ($value["id"] == $id) {
-                    $found = true;
-                    array_push($notes_buffer, $request->note);
-                } else {
-                    array_push($notes_buffer, $value);
-                }
-            }
-            if (!$found) {
-                array_push($notes_buffer, $request->note);
-            }
-            $legal_case->notes = $notes_buffer;
-        }
-        $legal_case->save();
-
-        return response()->json([
-            'error' => false,
-            'notes' => $legal_case->notes,
-        ], 200);
-    }
-
+    
     public function update(Request $request, $id)
     {
-
         $validator = Validator::make($request->all(), [
             'title' => 'required|min:2|unique:legal_cases,title,' . $id,
             'case_number' => 'required|min:2|unique:legal_cases,case_number,' . $id,
             'court_name' => 'required|min:2',
-            //'description' => 'required',
             'status' => 'required',
             'date_received' => 'required',
             'date_filed' => 'required',
@@ -750,42 +359,32 @@ class LegalCaseController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => true,
-                'message' => $validator->errors()->first(),
-                'payload' => $validator->errors()->toArray()
-            ], 422);
+            return redirect()->back()->withErrors($validator)->withInput();
         }
 
         $dupTitleCount = LegalCase::where(DB::raw('lower(title)'), '=', strtolower($request->title))->where('id', '!=', $id)->count();
         if ($dupTitleCount > 0) {
-            return response()->json(['error' => true, 'message' => "Another case has the same title"], 422);
+            return redirect()->back()->with('error', 'Another case has the same title')->withInput();
         }
         $dupCaseNumberCount = LegalCase::where(DB::raw('lower(case_number)'), '=', strtolower($request->case_number))->where('id', '!=', $id)->count();
         if ($dupCaseNumberCount > 0) {
-            return response()->json(['error' => true, 'message' => "Another case has the same case number"], 422);
+            return redirect()->back()->with('error', 'Another case has the same case number')->withInput();
         }
-
 
         $legalcase = LegalCase::withTrashed()->find($id);
         if (!$legalcase) {
-            return response()->json([
-                'error' => true,
-                'message' => "Legal case not found",
-            ], 422);
+            return redirect()->back()->with('error', 'Legal case not found');
         }
 
         if ($request->is_internal) {
             if (count($request->lawyer_id) == 0) {
-                return response()->json(['error' => true, 'message' => "No lawyers selected"], 422);
+                return redirect()->back()->with('error', 'No lawyers selected')->withInput();
             }
         } else {
             if (count($request->external_advocate_ids) == 0) {
-                return response()->json(['error' => true, 'message' => "No external advocates selected"], 422);
+                return redirect()->back()->with('error', 'No external advocates selected')->withInput();
             }
         }
-
-
 
         $legalcase->title = $request->title;
         $legalcase->court_name = $request->court_name;
@@ -794,22 +393,13 @@ class LegalCaseController extends Controller
         $legalcase->user_id = $request->user()->id;
         $legalcase->date_received = $request->date_received;
         $legalcase->mention_date = $request->mention_date;
-
-        // $legalcase->status = $request->status;
         $legalcase->case_stage_id = $request->status;
-
         $legalcase->date_of_filing = $request->date_filed;
         $legalcase->case_number = $request->case_number;
         $legalcase->nature_of_claim_id = $request->nature_of_claim_id;
-        // $legalcase->lawyer_id = $request->lawyer_id;
         $legalcase->is_internal = $request->is_internal;
         $legalcase->completion_date = $request->determination_date;
-
-
-
-        //$legalcase->case_stage_id = 1;
         $legalcase->case_type_id = $request->input('case_type_id');
-        //$legalcase->year = date("Y");
         $legalcase->save();
 
         LegalCaseLawyer::where('legal_case_id', $id)->delete();
@@ -831,7 +421,6 @@ class LegalCaseController extends Controller
             }
         }
 
-
         ContingentLiability::where('legal_case_id', $id)->delete();
         if ($request->contigent_liability) {
             $contigentliability = new ContingentLiability();
@@ -851,7 +440,6 @@ class LegalCaseController extends Controller
             $item->description = "SLA for case $legalcase->title";
             $item->save();
         }
-
 
         LegalCaseInterimFeeNote::where('legal_case_id', $id)->delete();
         if ($request->interim_fee_note_amount) {
@@ -884,7 +472,6 @@ class LegalCaseController extends Controller
             $attachment->save();
         }
 
-
         LegalCaseJudgement::where("legal_case_id", $legalcase->id)->delete();
         if ($request->judgement_attachments) {
             $attachment = new LegalCaseJudgement();
@@ -915,13 +502,39 @@ class LegalCaseController extends Controller
             $attachment->save();
         }
 
-        $item = LegalCase::withTrashed()->with('filed_by', 'lawyers','contingent_liability', 'case_type', 'nature_of_claim', "case_stage","interim_fee_note","final_fee_note","judgement_attachments","dg_approval_attachments")->where("id", $legalcase->id)->first();
+        return redirect()->back()->with('success', 'Case updated successfully');
+    }
 
+    public function show($id)
+    {
+        $case = LegalCase::with([
+            'contingent_liability','sla','individual_parties','firm_parties',
+            'case_type', 'nature_of_claim', 'case_stage',
+            'tasks.assignees',
+            'lawyers',
+            'attachments',
+            'procurement_authority_documents',
+            'interim_fee_note',
+            'final_fee_note',
+            'judgement_attachments',
+            'dg_approval_attachments',
+            'events'
+        ])->findOrFail($id);
+        
+        if ($case) {
+            foreach ($case->individual_parties as $key => $value) {
+                $party = IndividualParty::find($value->individual_party_id);
+                $value->party = $party;
+            }
+            foreach ($case->firm_parties as $key => $value) {
+                $party = FirmParty::find($value->firm_party_id);
+                $value->party = $party;
+            }
+        }
 
-        return redirect()->back()->with([
-            'status' => 200,
-            'message' => 'Case filed successfully',
-            "item" => $item
+        return Inertia::render('case/View', [
+            'case' => $case,
+            'partyTypes' => PartyType::all()
         ]);
     }
 
@@ -939,39 +552,14 @@ class LegalCaseController extends Controller
             $casestageinformation->legal_case_id = $legal_case_id;
             $casestageinformation->case_stage_id = $stage_id;
             $casestageinformation->approval_status = $request->approval_status;
+            $casestageinformation->comments = $request->comments;
+
             $casestageinformation->save();
 
-            // $stage_name = CaseStage::where('id', $stage_id)->first()->name;
-
-            // return response()->json(['status' => 'success', 'message' => "Legal Case moved to $stage_name stage"], 200);
+            return redirect()->back()->with('success', 'Legal Case moved successfully');
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+            return redirect()->back()->with('error', $e->getMessage());
         }
-    }
-
-    public function updatecasestagestatus(Request $request)
-    {
-        $legal_case_id = $request->legal_case_id;
-        $stage_id = $request->case_stage_id;
-        $approval_status = $request->approval_status;
-        $comments = $request->comments;
-
-        try {
-            $casestageinformation = CaseStageInformation::where('legal_case_id', $legal_case_id)->where('case_stage_id', $stage_id)->first();
-            $casestageinformation->approval_status = $approval_status;
-            $casestageinformation->comments = $comments;
-            $casestageinformation->save();
-            return response()->json(['status' => 'success', 'message' => "Legal Case Stage Updated Successfully"], 200);
-        } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
-        }
-    }
-
-
-    public function case_activites($id)
-    {
-        $legal_case_activities = LegalCaseActivities::with("participants", "activity")->where("legal_case_id", $id)->get();
-        return $legal_case_activities;
     }
 
     public function create_case_activity(Request $request)
@@ -984,13 +572,8 @@ class LegalCaseController extends Controller
             'title' => 'sometimes|string|min:2|unique:legal_case_activities,title'
         ]);
 
-
         if ($validator->fails()) {
-            return response()->json([
-                'error' => true,
-                'message' => $validator->errors()->first(),
-                'payload' => $validator->errors()->toArray()
-            ], 422);
+            return redirect()->back()->withErrors($validator)->withInput();
         }
 
         $legal_case_activity = new LegalCaseActivities();
@@ -1001,11 +584,7 @@ class LegalCaseController extends Controller
         $legal_case_activity->date = $request->date;
         $legal_case_activity->status = $request->status;
         $legal_case_activity->created_by = Auth::user()->id;
-
         $legal_case_activity->attachments = $request->attachments;
-
-
-
         $legal_case_activity->save();
 
         if ($request->participants) {
@@ -1017,88 +596,11 @@ class LegalCaseController extends Controller
             }
         }
 
-
-        $item = LegalCaseActivities::with("participants", "activity")->where("id", $legal_case_activity->id)->first();
-
-        return response()->json([
-            'status' => 200,
-            'message' => 'Activity created successfully',
-            'item' => $item,
-        ], 200);
+        return redirect()->back()->with('success', 'Activity created successfully');
     }
-
-    public function delete_case_activity($id)
-    {
-        $item = LegalCaseActivities::find($id);
-        if (!$item) {
-            return response()->json([
-                'error' => true,
-                'message' => "Legal case activity not found",
-            ], 422);
-        }
-
-        $item->delete();
-        return response()->json([
-            'status' => 200,
-            'message' => 'Activity deleted successfully',
-        ], 200);
-    }
-
-
-    public function case_overview(Request $request, $id)
-    {
-        $item = LegalCase::withTrashed()->with('contingent_liability', 'case_type', 'nature_of_claim', 'sla', 'individual_parties', 'firm_parties', 'attachments', 'lawyers', "case_stage")->where('id', $id)->first();
-        if ($item) {
-            foreach ($item->individual_parties as $key => $value) {
-                $party = IndividualParty::find($value->individual_party_id);
-                $value->party = $party;
-
-                $party_type = PartyType::find($value->party_type_id);
-                $value->party_type = $party_type;
-            }
-            foreach ($item->firm_parties as $key => $value) {
-                $party = FirmParty::find($value->firm_party_id);
-                $value->party = $party;
-
-                $party_type = PartyType::find($value->party_type_id);
-                $value->party_type = $party_type;
-            }
-
-            //tasks
-            $tasks = Task::where("legal_case_id", $id)->where("status", "!=", 3)->get();
-            $item->tasks = $tasks;
-            //
-
-            //activities
-            $activities = LegalCaseActivities::with("participants", "activity")->where("legal_case_id", $id)->get();
-            $item->activities = $activities;
-            //
-
-            //notes --------
-            $legal_case_notes = LegalCaseNotes::where("legal_case_id", $id)->get();
-            $item->notes = $legal_case_notes;
-            //
-
-            $case_attachments = CaseAttachment::where("legal_case_id", $id)->pluck("files_meta");
-            $activity_attachments = LegalCaseActivities::where("legal_case_id", $id)->select("id", "title", "attachments")->get();
-            $activity_notes = LegalCaseNotes::where("legal_case_id", $id)->select("id", "title", "attachments")->get();
-            $task_attachments = Task::where("legal_case_id", $id)->whereHas("attachments")->with("attachments")->select("tasks.id", "tasks.title")->get();
-
-            $item->file_attachments = [
-                "case" => $case_attachments,
-                "tasks" => $task_attachments,
-                "activity" => $activity_attachments,
-                "notes" => $activity_notes,
-            ];
-        }
-        return $item;
-    }
-
-
-
+    
     public function update_case_activity(Request $request, $id)
     {
-
         $validator = Validator::make($request->all(), [
             'legal_case_id' => 'required',
             'case_activity_id' => 'required',
@@ -1108,20 +610,12 @@ class LegalCaseController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => true,
-                'message' => $validator->errors()->first(),
-                'payload' => $validator->errors()->toArray()
-            ], 422);
+            return redirect()->back()->withErrors($validator)->withInput();
         }
-
 
         $item = LegalCaseActivities::find($id);
         if (!$item) {
-            return response()->json([
-                'error' => true,
-                'message' => "Legal case activity not found",
-            ], 422);
+            return redirect()->back()->with('error', 'Legal case activity not found');
         }
 
         $item->title = $request->title;
@@ -1143,35 +637,25 @@ class LegalCaseController extends Controller
             }
         }
 
-
-        $item = LegalCaseActivities::with("participants", "activity")->where("id", $id)->first();
-
-        return response()->json([
-            'status' => 200,
-            'message' => 'Activity update successfully',
-            'item' => $item,
-        ], 200);
+        return redirect()->back()->with('success', 'Activity updated successfully');
     }
 
-
-
-    public function case_attachments($id)
+    public function delete_case_activity($id)
     {
-        $attachments = CaseAttachment::where("legal_case_id", $id)->pluck("files_meta");
-        if (count($attachments) > 0) {
-            return $attachments[0];
+        $item = LegalCaseActivities::find($id);
+        if (!$item) {
+            return redirect()->back()->with('error', 'Legal case activity not found');
         }
-        return $attachments;
-    }
 
+        $item->delete();
+        return redirect()->back()->with('success', 'Activity deleted successfully');
+    }
+    
     public function delete_case_attachment(Request $request, $legal_case_id, $attachment_id)
     {
         $caseAttachment  = CaseAttachment::where("legal_case_id", $legal_case_id)->first();
         if (!$caseAttachment) {
-            return response()->json([
-                'error' => true,
-                'message' => "Attachment not found",
-            ], 422);
+            return redirect()->back()->with('error', 'Attachment not found');
         }
         $attachmentsArray = CaseAttachment::where("legal_case_id", $legal_case_id)->pluck("files_meta")[0];
         $attachment_id = (string) $attachment_id;
@@ -1183,33 +667,7 @@ class LegalCaseController extends Controller
         $caseAttachment->files_meta = $updatedAttachments;
         $caseAttachment->save();
 
-        return response()->json([
-            'error' => false,
-            'attachments' => $this->get_case_attachments_helper($legal_case_id),
-
-        ], 200);
-    }
-
-    public function get_case_attachments_helper($legal_case_id)
-    {
-        $attachmentsArray = CaseAttachment::where("legal_case_id", $legal_case_id)->pluck("files_meta");
-        if (count($attachmentsArray) == 0) {
-            return [];
-        }
-        $attachmentsArray =  $attachmentsArray[0];
-        foreach ($attachmentsArray as $key => $value) {
-            if (isset($value['type']) && $value['type'] != -1) {
-                $type = $value['type'];
-                if ($type != -1) {
-                    $docType = DocumentTypes::find($type);
-                    if ($docType) {
-                        $attachmentsArray[$key]['temp_type'] = $docType->name;
-                    }
-                }
-            }
-        }
-        $updatedAttachments = array_values($attachmentsArray);
-        return  $updatedAttachments;
+        return redirect()->back()->with('success', 'Attachment deleted successfully');
     }
 
     public function edit_case_attachments(Request $request, $id)
@@ -1217,11 +675,7 @@ class LegalCaseController extends Controller
         $attachment = $request->attachment;
         $attachments  = CaseAttachment::where("legal_case_id", $id)->first();
         if (!$attachments) {
-            return response()->json([
-                'error' => true,
-                'message' => "Attachment not found",
-
-            ], 422);
+            return redirect()->back()->with('error', 'Attachment not found');
         }
         $attachmentsArray = CaseAttachment::where("legal_case_id", $id)->pluck("files_meta")[0];
 
@@ -1239,11 +693,9 @@ class LegalCaseController extends Controller
         $attachments->files_meta = $updatedAttachments;
         $attachments->save();
 
-        return response()->json([
-            'status' => 200,
-            'attachments' => $this->get_case_attachments_helper($id),
-        ], 200);
+        return redirect()->back()->with('success', 'Attachment updated successfully');
     }
+    
     public function store_case_attachments(Request $request, $id)
     {
         $attachments  = CaseAttachment::where("legal_case_id", $id)->first();
@@ -1254,8 +706,6 @@ class LegalCaseController extends Controller
         }
         $attachments->files_meta = $request->attachments;
         $attachments->save();
-
-
 
         $attachmentsArray = CaseAttachment::where("legal_case_id", $id)->pluck("files_meta")[0];
 
@@ -1269,18 +719,7 @@ class LegalCaseController extends Controller
         $attachments->files_meta = $updatedAttachments;
         $attachments->save();
 
-
-        return response()->json([
-            'status' => 200,
-            'attachments' => $this->get_case_attachments_helper($id),
-        ], 200);
-    }
-
-
-    public function case_notes($id)
-    {
-        $legal_case_notes = LegalCaseNotes::where("legal_case_id", $id)->get();
-        return $legal_case_notes;
+        return redirect()->back()->with('success', 'Attachments stored successfully');
     }
 
     public function create_case_note(Request $request)
@@ -1293,11 +732,7 @@ class LegalCaseController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'error' => true,
-                'message' => $validator->errors()->first(),
-                'payload' => $validator->errors()->toArray()
-            ], 422);
+            return redirect()->back()->withErrors($validator)->withInput();
         }
 
         $legal_case_note = new LegalCaseNotes();
@@ -1309,36 +744,22 @@ class LegalCaseController extends Controller
         $legal_case_note->attachments = $request->attachments;
         $legal_case_note->save();
 
-
-
-        $item = LegalCaseNotes::where("id", $legal_case_note->id)->first();
-
-        return response()->json([
-            'status' => 200,
-            'message' => 'Note created successfully',
-            'item' => $item,
-        ], 200);
+        return redirect()->back()->with('success', 'Note created successfully');
     }
 
     public function delete_case_note($id)
     {
         $item = LegalCaseNotes::find($id);
         if (!$item) {
-            return response()->json([
-                'error' => true,
-                'message' => "Legal case note not found",
-            ], 422);
+            return redirect()->back()->with('error', 'Legal case note not found');
         }
 
         $item->delete();
-        return response()->json([
-            'status' => 200,
-            'message' => 'Note deleted successfully',
-        ], 200);
+        return redirect()->back()->with('success', 'Note deleted successfully');
     }
+    
     public function update_case_note(Request $request, $id)
     {
-
         $validator = Validator::make($request->all(), [
             'legal_case_id' => 'required',
             'note' => 'required',
@@ -1346,22 +767,13 @@ class LegalCaseController extends Controller
             'title' => 'required|string|min:2|unique:legal_case_notes,title,' . $id
         ]);
 
-
         if ($validator->fails()) {
-            return response()->json([
-                'error' => true,
-                'message' => $validator->errors()->first(),
-                'payload' => $validator->errors()->toArray()
-            ], 422);
+            return redirect()->back()->withErrors($validator)->withInput();
         }
-
 
         $item = LegalCaseNotes::find($id);
         if (!$item) {
-            return response()->json([
-                'error' => true,
-                'message' => "Legal case note not found",
-            ], 422);
+            return redirect()->back()->with('error', 'Legal case note not found');
         }
 
         $item->title = $request->title;
@@ -1371,14 +783,6 @@ class LegalCaseController extends Controller
         $item->date = $request->date;
         $item->save();
 
-
-
-        $item = LegalCaseNotes::where("id", $id)->first();
-
-        return response()->json([
-            'status' => 200,
-            'message' => 'Note updated successfully',
-            'item' => $item,
-        ], 200);
+        return redirect()->back()->with('success', 'Note updated successfully');
     }
 }

@@ -6,6 +6,7 @@ use App\Http\Controllers\FileController;
 use App\Http\Controllers\KnowledgeBaseController;
 use App\Http\Controllers\LegalCase\LegalCaseController;
 use App\Http\Controllers\MiscController;
+use App\Http\Controllers\PartyController;
 use App\Http\Controllers\PermissionsAndRolesController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
@@ -45,12 +46,49 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
     Route::get('/documents', [FileController::class, 'files'])->name('files.index');
-
-    Route::get('/legal_cases', [LegalCaseController::class, 'index'])->name('case.index');
-    Route::post('/legal_cases', [LegalCaseController::class, 'create'])->name('case.create');
-    Route::put('/legal_cases/{id}', [LegalCaseController::class, 'update'])->name('case.update');
-    Route::get('/legal_cases/{id}', [LegalCaseController::class, 'show'])->name('case.show');
-    Route::delete('/legal_cases/{id}', [LegalCaseController::class, 'delete'])->name('case.delete');
+    
+    // Legal Cases Routes
+    Route::prefix('legal_cases')->group(function () {
+        // Display routes (return pages)
+        Route::get('/', [LegalCaseController::class, 'index'])->name('case.index');
+        Route::get('/{id}', [LegalCaseController::class, 'show'])->name('case.show');
+        
+        // CRUD operations (redirect back with messages)
+        Route::post('/', [LegalCaseController::class, 'create'])->name('case.create');
+        Route::put('/{id}', [LegalCaseController::class, 'update'])->name('case.update');
+        Route::patch('/{id}/activate', [LegalCaseController::class, 'activate'])->name('case.activate');
+        Route::patch('/{id}/deactivate', [LegalCaseController::class, 'deactivate'])->name('case.deactivate');
+        Route::delete('/{id}', [LegalCaseController::class, 'delete'])->name('case.delete');
+        
+        // Case Stages
+        Route::post('/update-case-stages', [LegalCaseController::class, 'updatecasestages'])->name('case.update-case-stages');
+        
+        // Case Activities
+        Route::post('/case-activities', [LegalCaseController::class, 'create_case_activity'])->name('case.create-case-activity');
+        Route::put('/case-activities/{id}', [LegalCaseController::class, 'update_case_activity'])->name('case.update-case-activity');
+        Route::delete('/case-activities/{id}', [LegalCaseController::class, 'delete_case_activity'])->name('case.delete-case-activity');
+        
+        // Case Attachments
+        Route::post('/{id}/attachments', [LegalCaseController::class, 'store_case_attachments'])->name('case.store-case-attachments');
+        Route::put('/{id}/attachments', [LegalCaseController::class, 'edit_case_attachments'])->name('case.edit-case-attachments');
+        Route::delete('/{legal_case_id}/attachments/{attachment_id}', [LegalCaseController::class, 'delete_case_attachment'])->name('case.delete-case-attachment');
+        
+        // Case Notes
+        Route::post('/case-notes', [LegalCaseController::class, 'create_case_note'])->name('case.create-case-note');
+        Route::put('/case-notes/{id}', [LegalCaseController::class, 'update_case_note'])->name('case.update-case-note');
+        Route::delete('/case-notes/{id}', [LegalCaseController::class, 'delete_case_note'])->name('case.delete-case-note');
+    });
+    
+    
+    // Individual Party Routes
+    Route::post('/parties/individual', [PartyController::class, 'createIndividual']);
+    Route::put('/parties/individual', [PartyController::class, 'updateIndividual']);
+    Route::delete('/parties/individual', [PartyController::class, 'destroyIndividual']);
+    
+    // Firm Party Routes
+    Route::post('/parties/firm', [PartyController::class, 'createFirm']);
+    Route::put('/parties/firm', [PartyController::class, 'updateFirm']);
+    Route::delete('/parties/firm', [PartyController::class, 'destroyFirm']);
 
 
 

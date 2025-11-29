@@ -111,7 +111,7 @@ watch([typeFilter, caseFilter], () => {
   <AppLayout>
     <Head :title="'Case Calendar'" />
 
-    <div class="flex md:space-x-5 app_height overflow-hidden relative rtl:space-x-reverse md:p-8 p-4">
+    <div class="flex md:space-x-5 app_height overflow-hidden relative md:p-8 p-4">
       <!-- Sidebar -->
       <div
         class="transition-all duration-300 z-[999] bg-white dark:bg-black h-full shadow-lg"

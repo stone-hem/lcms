@@ -11,16 +11,23 @@ import {
   Search, 
   Edit, 
   Trash2, 
-  MoreVertical,
   User,
   Mail,
   Phone,
   MapPin
 } from 'lucide-vue-next'
+import AddIndividualModal from '@/components/cases/parties/AddIndividualModal.vue'
+import EditIndividualModal from '@/components/cases/parties/EditIndividualModal.vue'
+import DeleteIndividualModal from '@/components/cases/parties/DeleteIndividualModal.vue'
+import AddFirmModal from '@/components/cases/parties/AddFirmModal.vue'
+import EditFirmModal from '@/components/cases/parties/EditFirmModal.vue'
+import DeleteFirmModal from '@/components/cases/parties/DeleteFirmModal.vue'
 
 const props = defineProps<{
   parties?: any[]
   firms?: any[]
+  legalCaseId: number,
+  partyTypes: any[]
 }>()
 
 const searchQuery = ref('')
@@ -49,31 +56,19 @@ const filteredFirms = computed(() => {
   )
 })
 
-// Empty handlers for buttons (to be implemented later)
-const handleAddParty = () => {
-  console.log('Add party clicked')
+const modals = {
+  addIndividual: ref(false),
+  editIndividual: ref(false),
+  deleteIndividual: ref(false),
+  addFirm: ref(false),
+  editFirm: ref(false),
+  deleteFirm: ref(false),
 }
 
-const handleEditParty = (party: any) => {
-  console.log('Edit party:', party)
+const selected = {
+  individual: ref(null),
+  firm: ref(null),
 }
-
-const handleDeleteParty = (party: any) => {
-  console.log('Delete party:', party)
-}
-
-const handleAddFirm = () => {
-  console.log('Add firm clicked')
-}
-
-const handleEditFirm = (firm: any) => {
-  console.log('Edit firm:', firm)
-}
-
-const handleDeleteFirm = (firm: any) => {
-  console.log('Delete firm:', firm)
-}
-
 // Format phone number for display
 const formatPhone = (phone: string) => {
   if (!phone) return 'Not provided'
@@ -85,6 +80,8 @@ const formatAddress = (address: string) => {
   if (!address) return 'Not provided'
   return address.length > 30 ? address.substring(0, 30) + '...' : address
 }
+
+const reload = () => router.reload({ only: ['parties', 'firms'] })
 </script>
 
 <template>
@@ -100,11 +97,11 @@ const formatAddress = (address: string) => {
         />
       </div>
       <div class="flex gap-2">
-        <Button @click="handleAddParty" class="flex items-center gap-2">
+        <Button @click="modals.addIndividual.value = true" class="flex items-center gap-2">
           <User class="h-4 w-4" />
           Add Party
         </Button>
-        <Button @click="handleAddFirm" class="flex items-center gap-2">
+        <Button @click="modals.addFirm.value = true" class="flex items-center gap-2">
           <Building class="h-4 w-4" />
           Add Firm
         </Button>
@@ -131,7 +128,7 @@ const formatAddress = (address: string) => {
         <div v-if="!parties?.length" class="text-center py-8 text-muted-foreground">
           <Users class="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p>No parties added yet</p>
-          <Button @click="handleAddParty" variant="outline" class="mt-4">
+          <Button @click="modals.addIndividual.value = true" variant="outline" class="mt-4">
             <Plus class="h-4 w-4 mr-2" />
             Add First Party
           </Button>
@@ -186,7 +183,7 @@ const formatAddress = (address: string) => {
             <!-- Action Buttons -->
             <div class="flex items-center gap-2 ml-4">
               <Button 
-                @click="handleEditParty(party)" 
+              @click="selected.individual = party; modals.editIndividual.value = true"
                 variant="ghost" 
                 size="icon"
                 class="h-8 w-8"
@@ -194,7 +191,7 @@ const formatAddress = (address: string) => {
                 <Edit class="h-4 w-4" />
               </Button>
               <Button 
-                @click="handleDeleteParty(party)" 
+                @click="selected.individual = party; modals.deleteIndividual.value = true" 
                 variant="ghost" 
                 size="icon"
                 class="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
@@ -235,7 +232,7 @@ const formatAddress = (address: string) => {
         <div v-if="!firms?.length" class="text-center py-8 text-muted-foreground">
           <Building class="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p>No firms added yet</p>
-          <Button @click="handleAddFirm" variant="outline" class="mt-4">
+          <Button @click="modals.addFirm.value = true" variant="outline" class="mt-4">
             <Plus class="h-4 w-4 mr-2" />
             Add First Firm
           </Button>
@@ -288,7 +285,7 @@ const formatAddress = (address: string) => {
             <!-- Action Buttons -->
             <div class="flex items-center gap-2 ml-4">
               <Button 
-                @click="handleEditFirm(firm)" 
+              @click="selected.firm = firm; modals.editFirm.value = true"
                 variant="ghost" 
                 size="icon"
                 class="h-8 w-8"
@@ -296,7 +293,7 @@ const formatAddress = (address: string) => {
                 <Edit class="h-4 w-4" />
               </Button>
               <Button 
-                @click="handleDeleteFirm(firm)" 
+              @click="selected.firm = firm; modals.deleteFirm.value = true"
                 variant="ghost" 
                 size="icon"
                 class="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
@@ -317,6 +314,52 @@ const formatAddress = (address: string) => {
       </CardContent>
     </Card>
   </div>
+  
+  <AddIndividualModal
+      :open="modals.addIndividual.value"
+      :legalCaseId="legalCaseId"
+      :partyTypes="partyTypes"
+      @close="modals.addIndividual.value = false"
+      @success="reload"
+    />
+  
+    <EditIndividualModal
+      :open="modals.editIndividual.value"
+      :party="selected.individual"
+      :partyTypes="partyTypes"
+      @close="modals.editIndividual.value = false"
+      @success="reload"
+    />
+  
+    <DeleteIndividualModal
+      :open="modals.deleteIndividual.value"
+      :party="selected.individual"
+      @close="modals.deleteIndividual.value = false"
+      @deleted="reload"
+    />
+  
+    <AddFirmModal
+      :open="modals.addFirm.value"
+      :legalCaseId="legalCaseId"
+      :partyTypes="partyTypes"
+      @close="modals.addFirm.value = false"
+      @success="reload"
+    />
+  
+    <EditFirmModal
+      :open="modals.editFirm.value"
+      :firm="selected.firm"
+      :party-types="partyTypes"
+      @close="modals.editFirm.value = false"
+      @success="reload"
+    />
+  
+    <DeleteFirmModal
+      :open="modals.deleteFirm.value"
+      :firm="selected.firm"
+      @close="modals.deleteFirm.value = false"
+      @deleted="reload"
+    />
 </template>
 
 <style scoped>
