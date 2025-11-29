@@ -9,11 +9,11 @@ import { ArrowLeft } from 'lucide-vue-next'
 
 import CaseOverviewTab from '@/components/cases/tabs/CaseOverviewTab.vue'
 import CasePartiesAndFirmsTab from '@/components/cases/parties/CasePartiesAndFirmsTab.vue'
-import CaseActivityTab from '@/components/cases/tabs/CaseActivityTab.vue'
-import CaseTasksTab from '@/components/cases/tabs/CaseTasksTab.vue'
-import CaseNotesTab from '@/components/cases/tabs/CaseNotesTab.vue'
-import CaseAttachmentsTab from '@/components/cases/tabs/CaseAttachmentsTab.vue'
-import CaseCalendarTab from '@/components/cases/tabs/CaseCalendarTab.vue'
+import CaseActivityTab from '@/components/cases/activities/CaseActivityTab.vue'
+import CaseTasksTab from '@/components/cases/tasks/CaseTasksTab.vue'
+import CaseNotesTab from '@/components/cases/notes/CaseNotesTab.vue'
+import CaseAttachmentsTab from '@/components/attachments/CaseAttachmentsTab.vue'
+import CaseCalendarTab from '@/components/cases/calendar/CaseCalendarTab.vue'
 
 const props = defineProps<{
   case: any,
@@ -106,7 +106,7 @@ const activeTab = ref('overview')
         <!-- Activity -->
         <div v-show="activeTab === 'activity'">
           <Card>
-            <CaseActivityTab :activities="caseData.activities" />
+            <CaseActivityTab :caseActivityTypes="caseData.case_activity_types" :participants="caseData.lawyers" :legalCaseId="caseData.id" :activities="caseData.activities" />
           </Card>
         </div>
 

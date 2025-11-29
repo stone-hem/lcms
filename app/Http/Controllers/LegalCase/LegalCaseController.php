@@ -534,7 +534,8 @@ class LegalCaseController extends Controller
 
         return Inertia::render('case/View', [
             'case' => $case,
-            'partyTypes' => PartyType::all()
+            'partyTypes' => PartyType::all(),
+            'case_activity_types' => CaseActivity::all(),
         ]);
     }
 

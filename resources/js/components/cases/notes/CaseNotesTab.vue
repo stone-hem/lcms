@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { 
   FileText, 
@@ -12,12 +11,15 @@ import {
   Trash2, 
   Calendar,
   Paperclip,
-  Eye,
-  MoreVertical
+  Eye
 } from 'lucide-vue-next'
+import AddCaseNoteModal from '@/components/cases/notes/AddCaseNoteModal.vue'
+import EditCaseNoteModal from '@/components/cases/notes/EditCaseNoteModal.vue'
+import DeleteCaseNoteModal from '@/components/cases/notes/DeleteCaseNoteModal.vue'
 
 const props = defineProps<{
-  notes?: any[]
+  notes?: any[],
+  legalCaseId: number,
 }>()
 
 const searchQuery = ref('')
@@ -33,17 +35,24 @@ const filteredNotes = computed(() => {
   )
 })
 
-// Empty handlers for buttons (to be implemented later)
-const handleAddNote = () => {
-  console.log('Add note clicked')
+const modals = {
+  add: ref(false),
+  edit: ref(false),
+  delete: ref(false),
 }
 
+const selectedNote = ref(null)
+
+const reload = () => router.reload({ only: ['notes'] })
+
+const handleAddNote = () => (modals.add.value = true)
 const handleEditNote = (note: any) => {
-  console.log('Edit note:', note)
+  selectedNote.value = note
+  modals.edit.value = true
 }
-
 const handleDeleteNote = (note: any) => {
-  console.log('Delete note:', note)
+  selectedNote.value = note
+  modals.delete.value = true
 }
 
 const handleViewAttachment = (attachment: any) => {
@@ -239,6 +248,26 @@ const formatFileSize = (bytes: number) => {
       </CardContent>
     </Card>
   </div>
+  <AddCaseNoteModal
+      :open="modals.add.value"
+      :legal-case-id="legalCaseId"
+      @close="modals.add.value = false"
+      @success="reload"
+    />
+  
+    <EditCaseNoteModal
+      :open="modals.edit.value"
+      :note="selectedNote"
+      @close="modals.edit.value = false"
+      @success="reload"
+    />
+  
+    <DeleteCaseNoteModal
+      :open="modals.delete.value"
+      :note="selectedNote"
+      @close="modals.delete.value = false"
+      @deleted="reload"
+    />
 </template>
 
 <style scoped>

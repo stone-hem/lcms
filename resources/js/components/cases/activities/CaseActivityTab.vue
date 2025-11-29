@@ -15,12 +15,17 @@ import {
   FileText,
   Clock,
   CheckCircle2,
-  AlertCircle,
   PlayCircle
 } from 'lucide-vue-next'
+import AddCaseActivityModal from '@/components/cases/activities/AddCaseActivityModal.vue'
+import EditCaseActivityModal from '@/components/cases/activities/EditCaseActivityModal.vue'
+import DeleteCaseActivityModal from '@/components/cases/activities/DeleteCaseActivityModal.vue'
 
 const props = defineProps<{
-  activities?: any[]
+  activities?: any[],
+  legalCaseId: number,
+  caseActivityTypes: any[],
+  participants?: any[]
 }>()
 
 const searchQuery = ref('')
@@ -33,6 +38,27 @@ const statusOptions = [
   { value: 4, label: "Cancelled", color: "bg-red-100 text-red-800 border-red-200" }
 ]
 
+const modals = {
+  add: ref(false),
+  edit: ref(false),
+  delete: ref(false),
+}
+
+const selectedActivity = ref(null)
+
+const reload = () => router.reload({ only: ['activities'] })
+
+// Handlers
+const handleAddActivity = () => (modals.add.value = true)
+const handleEditActivity = (activity: any) => {
+  selectedActivity.value = activity
+  modals.edit.value = true
+}
+const handleDeleteActivity = (activity: any) => {
+  selectedActivity.value = activity
+  modals.delete.value = true
+}
+
 // Filter activities based on search
 const filteredActivities = computed(() => {
   if (!props.activities) return []
@@ -44,19 +70,6 @@ const filteredActivities = computed(() => {
     activity.description?.toLowerCase().includes(searchQuery.value.toLowerCase())
   )
 })
-
-// Empty handlers for buttons (to be implemented later)
-const handleAddActivity = () => {
-  console.log('Add activity clicked')
-}
-
-const handleEditActivity = (activity: any) => {
-  console.log('Edit activity:', activity)
-}
-
-const handleDeleteActivity = (activity: any) => {
-  console.log('Delete activity:', activity)
-}
 
 // Format date for display
 const formatDate = (dateString: string) => {
@@ -268,6 +281,30 @@ const getActivityIcon = (activityType: string) => {
       </Card>
     </div>
   </div>
+  <AddCaseActivityModal
+      :open="modals.add.value"
+      :legal-case-id="legalCaseId"
+      :case-activity-types="caseActivityTypes"
+      :participants="participants"
+      @close="modals.add.value = false"
+      @success="reload"
+    />
+  
+    <EditCaseActivityModal
+      :open="modals.edit.value"
+      :activity="selectedActivity"
+      :case-activity-types="caseActivityTypes"
+      :participants="participants"
+      @close="modals.edit.value = false"
+      @success="reload"
+    />
+  
+    <DeleteCaseActivityModal
+      :open="modals.delete.value"
+      :activity="selectedActivity"
+      @close="modals.delete.value = false"
+      @deleted="reload"
+    />
 </template>
 
 <style scoped>
