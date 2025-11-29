@@ -134,7 +134,7 @@ const activeTab = ref('overview')
         <!-- Calendar -->
         <div v-show="activeTab === 'calendar'">
           <Card>
-            <CaseCalendarTab :events="caseData.events" />
+            <CaseCalendarTab :events="caseData.events" :tasks="caseData.tasks" :activities="[]" />
           </Card>
         </div>
       </div>

@@ -30,13 +30,7 @@ interface CalendarEvent {
 const props = defineProps<{
   tasks: CalendarEvent[]
   activities: CalendarEvent[]
-  events: CalendarEvent[]
-  presets: {
-    lawyers: any[]
-    event_categories: any[]
-    legal_cases: any[]
-  }
-  calendar_type?: 'master' | 'mine'
+  events: CalendarEvent[],
   current_date_range?: {
     start_date: string
     end_date: string
@@ -99,14 +93,6 @@ const refresh = (startDate: string | null = null, endDate: string | null = null)
   if (endDate) params.end_date = endDate
   if (caseFilter.value !== -1) params.case_id = caseFilter.value
   
-  // Determine which route to use based on current calendar type
-  const routeName = props.calendar_type === 'mine' ? 'calendar.mine' : 'calendar.master'
-  
-  router.visit(route(routeName, params), {
-    preserveState: true,
-    preserveScroll: true,
-    only: ['tasks', 'activities', 'events', 'presets', 'current_date_range', 'calendar_type']
-  })
 }
 
 onMounted(() => {
@@ -123,7 +109,7 @@ watch([typeFilter, caseFilter], () => {
 
 <template>
   <AppLayout>
-    <Head :title="calendar_type === 'mine' ? 'My Calendar' : 'Master Calendar'" />
+    <Head :title="'Case Calendar'" />
 
     <div class="flex md:space-x-5 app_height overflow-hidden relative rtl:space-x-reverse md:p-8 p-4">
       <!-- Sidebar -->
@@ -137,7 +123,7 @@ watch([typeFilter, caseFilter], () => {
               <!-- Calendar Type Badge -->
               <div class="px-4 py-2 bg-primary-100 dark:bg-primary-900 rounded-lg text-center">
                 <span class="text-primary-700 dark:text-primary-300 font-medium">
-                  {{ calendar_type === 'mine' ? 'My Calendar' : 'Master Calendar' }}
+                    Case Calender
                 </span>
               </div>
 
@@ -175,7 +161,7 @@ watch([typeFilter, caseFilter], () => {
                 All Cases
               </button>
 
-              <button
+              <!-- <button
                 v-for="c in props.presets.legal_cases"
                 :key="c.id"
                 @click="caseFilter = c.id"
@@ -183,7 +169,7 @@ watch([typeFilter, caseFilter], () => {
                 :class="caseFilter === c.id ? 'bg-primary-500 text-white' : ''"
               >
                 {{ c.case_number }} - {{ c.title }}
-              </button>
+              </button> -->
             </div>
           </div>
         </Card>
@@ -200,7 +186,7 @@ watch([typeFilter, caseFilter], () => {
       <div class="flex-1">
         <Card bodyClass="p-0 h-full">
           <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-            <h3 class="text-lg font-semibold">{{ calendar_type === 'mine' ? 'My Calendar' : 'Master Calendar' }}</h3>
+            <h3 class="text-lg font-semibold">Case Calender</h3>
             <div class="flex items-center gap-3">
               <!-- Loading Spinner (Tailwind) -->
               <div v-if="loading" class="w-9 h-9 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
@@ -236,7 +222,7 @@ watch([typeFilter, caseFilter], () => {
     <!-- MODALS -->
     <AddEventModal
       :open="showAdd"
-      :presets="props.presets"
+      :presets="[]"
       :initial-date="selectedDate"
       @close="showAdd = false"
       @success="refresh(); showAdd = false"
@@ -245,7 +231,7 @@ watch([typeFilter, caseFilter], () => {
     <EditEventModal
       :open="showEdit"
       :event="selectedEvent"
-      :presets="props.presets"
+      :presets="[]"
       @close="showEdit = false"
       @success="refresh(); showEdit = false"
     />

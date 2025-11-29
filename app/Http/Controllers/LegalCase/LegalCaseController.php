@@ -396,8 +396,7 @@ class LegalCaseController extends Controller
                 'final_fee_note',
                 'judgement_attachments',
                 'dg_approval_attachments',
-                'events',
-                'parties.partyType',
+                'events'
             ])->findOrFail($id);
             
             if ($case) {

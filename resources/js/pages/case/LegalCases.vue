@@ -20,7 +20,8 @@ import { Plus } from 'lucide-vue-next';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
-import Link from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
+
 
 interface Props {
     items: Array<any>;
@@ -171,7 +172,7 @@ const getStatusVariant = (status: string) => {
                                 }}</TableCell>
                                 <TableCell>
                                     <div class="flex justify-end gap-2">
-                                        <Link :href="route('case.show', item.id)">
+                                        <Link :href="`/legal_cases/${item.id}`">
                                             <Button variant="outline" size="sm">
                                                 View
                                             </Button>
