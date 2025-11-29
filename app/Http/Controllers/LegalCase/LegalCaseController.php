@@ -360,7 +360,7 @@ class LegalCaseController extends Controller
         $case_activities = CaseActivity::all();
         $external_advocates = User::where('is_external_counsel', 1)->get();
         $base_file_path = asset('storage') . '/uploads/temp/';
-       
+
 
 
 
@@ -385,20 +385,36 @@ class LegalCaseController extends Controller
 
     public function show($id)
     {
-        $item = LegalCase::withTrashed()->with('contingent_liability', 'case_type', 'nature_of_claim', 'sla', 'individual_parties', 'firm_parties', 'attachments', 'lawyers', "case_stage", "procurement_authority_documents","interim_fee_note","final_fee_note","judgement_attachments","dg_approval_attachments")->where('id', $id)->first();
-
-        if ($item) {
-            foreach ($item->individual_parties as $key => $value) {
-                $party = IndividualParty::find($value->individual_party_id);
-                $value->party = $party;
+        $case = LegalCase::with([
+        'contingent_liability','sla','individual_parties','firm_parties',
+                'case_type', 'nature_of_claim', 'case_stage',
+                'tasks.assignees',
+                'lawyers',
+                'attachments',
+                'procurement_authority_documents',
+                'interim_fee_note',
+                'final_fee_note',
+                'judgement_attachments',
+                'dg_approval_attachments',
+                'events',
+                'parties.partyType',
+            ])->findOrFail($id);
+            
+            if ($case) {
+                foreach ($case->individual_parties as $key => $value) {
+                    $party = IndividualParty::find($value->individual_party_id);
+                    $value->party = $party;
+                }
+                foreach ($case->firm_parties as $key => $value) {
+                    $party = FirmParty::find($value->firm_party_id);
+                    $value->party = $party;
+                }
             }
-            foreach ($item->firm_parties as $key => $value) {
-                $party = FirmParty::find($value->firm_party_id);
-                $value->party = $party;
-            }
-        }
 
-        return response()->json(['error' => false, 'content' => $item], 200);
+            return Inertia::render('case/View', [
+                'case' => $case
+            ]);
+
     }
 
 
