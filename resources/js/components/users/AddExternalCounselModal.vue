@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import axios from 'axios'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { router } from '@inertiajs/vue3'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits(['close', 'success'])
@@ -28,7 +28,7 @@ const submit = async () => {
     const payload: any = { ...form.value }
     payload.can_login = canLogin.value
 
-    await axios.post('/external_council', payload)
+    await router.post('/external_council', payload)
     emit('success')
     emit('close')
     form.value = { firm_name: '', bank_name: '', bank_branch: '', bank_account_number: '', postal_address: '', kra_pin: '', email: '', password: '' }

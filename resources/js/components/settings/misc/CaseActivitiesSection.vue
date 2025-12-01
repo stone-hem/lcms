@@ -25,8 +25,8 @@ const openEdit = (item: any) => {
 
 const submit = () => {
   isEdit.value
-    ? form.put(route('misc.update_case_activity', form.id), { onSuccess: () => showModal.value = false })
-    : form.post(route('misc.store_case_activity'), { onSuccess: () => showModal.value = false })
+    ? form.put(`/case-activities/${form.id}`, { onSuccess: () => showModal.value = false })
+    : form.post('/case-activities', { onSuccess: () => showModal.value = false })
 }
 
 const deactivate = (id: number) => confirm('Deactivate?') && router.post(route('misc.deactivate_case_activity', id))

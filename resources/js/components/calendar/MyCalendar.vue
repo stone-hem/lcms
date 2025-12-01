@@ -1,5 +1,5 @@
 <template>
-  <div class="calendar-container bg-white dark:bg-black rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
+  <div class="calendar-container bg-white dark:bg-black rounded-lg border border-slate-200 dark:border-slate-700">
     <div class="calendar-header flex flex-col sm:flex-row justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700">
       <div class="flex items-center space-x-4 mb-4 sm:mb-0">
         <h2 class="text-xl font-semibold text-slate-800 dark:text-slate-100">

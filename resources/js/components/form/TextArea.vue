@@ -23,6 +23,10 @@ defineProps({
   label: {
     type: String,
     default: ''
+  },
+  required: {
+    type: Boolean,
+    default: false
   }
 })
 

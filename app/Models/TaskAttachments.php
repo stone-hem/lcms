@@ -9,6 +9,15 @@ class TaskAttachments extends Model
 {
     use HasFactory;
     
+    protected $fillable = [
+        'task_id',
+        'user_id',
+        'file_name',
+        'size',
+        'extension',
+        'type',
+        'description'
+    ];
     
     public function user(){
        return $this->belongsTo(User::class);

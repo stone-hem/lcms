@@ -30,7 +30,7 @@ class CalenderController extends Controller
         // Get dates from query parameters with defaults
         $start_date = $request->get('start_date', Carbon::now()->startOfMonth()->toDateString());
         $end_date = $request->get('end_date', Carbon::now()->endOfMonth()->toDateString());
-
+    
         $case_id = $request->case_id;
         $lawyer_id = $request->lawyer_id;
         $external_advocate_id = $request->external_advocate_id;
@@ -38,43 +38,54 @@ class CalenderController extends Controller
         $display_activities = $request->activities ?? 1;
         $display_tasks = $request->tasks ?? 1;
         $display_events = $request->events ?? 1;
-
+    
+        // Initialize task_ids for lawyer filtering
         $task_ids = [];
+        $filtering_by_lawyer = false;
+        
         if ($lawyer_id && $lawyer_id != -1) {
+            $filtering_by_lawyer = true;
             $task_ids = Task::where("user_id", $lawyer_id)->pluck("id")->toArray();
-            $task_assignees_id = TaskAssignees::where("user_id", $lawyer_id)->pluck("user_id")->toArray();
-
-            foreach ($task_assignees_id as $id) {
+            $task_assignees_ids = TaskAssignees::where("user_id", $lawyer_id)->pluck("task_id")->toArray(); // Changed to task_id
+            
+            foreach ($task_assignees_ids as $id) {
                 array_push($task_ids, $id);
             }
             $task_ids = array_unique($task_ids);
         }
-
-        $tasks = Task::with("assignees", "attachments", "legal_case");
-        if (count($task_ids) > 0) {
-            $tasks =  $tasks->whereIn("id", $task_ids);
-        }
-
-        $tasks = $tasks->where(function ($query) use ($start_date, $end_date) {
-            $query->whereBetween('start_datetime', [
-                Carbon::parse($start_date)->toDateTimeString(),
-                Carbon::parse($end_date)->toDateTimeString()
-            ])->orWhereBetween('end_datetime', [
-                Carbon::parse($start_date)->toDateTimeString(),
-                Carbon::parse($end_date)->toDateTimeString()
-            ]);
-        });
-
+    
+        $tasks = Task::with("assignees", "attachments", "legal_case")
+            ->where(function ($query) use ($start_date, $end_date) {
+                $query->whereBetween('start_datetime', [
+                    Carbon::parse($start_date)->toDateTimeString(),
+                    Carbon::parse($end_date)->toDateTimeString()
+                ])->orWhereBetween('end_datetime', [
+                    Carbon::parse($start_date)->toDateTimeString(),
+                    Carbon::parse($end_date)->toDateTimeString()
+                ]);
+            });
+    
+        // Apply case filter if provided
         if ($case_id) {
             $tasks = $tasks->where("legal_case_id", $case_id);
         }
-
-        if (count($task_ids) == 0 && $lawyer_id && $lawyer_id != -1) {
-            $tasks = [];
-        } else {
+    
+        // Apply lawyer filter if provided
+        if ($filtering_by_lawyer) {
+            // Only apply lawyer filter if we have task_ids to filter by
+            if (count($task_ids) > 0) {
+                $tasks = $tasks->whereIn("id", $task_ids);
+            } else {
+                // If filtering by lawyer but no tasks found for that lawyer, return empty
+                $tasks = collect([]);
+            }
+        }
+    
+        // Get tasks only if $tasks is still a query builder
+        if ($tasks instanceof \Illuminate\Database\Eloquent\Builder) {
             $tasks = $tasks->get();
         }
-
+    
         $events = [];
         if ($display_events) {
             $events = CalenderEvents::with("participants")
@@ -85,17 +96,18 @@ class CalenderController extends Controller
                     Carbon::parse($start_date)->toDateString(),
                     Carbon::parse($end_date)->toDateString()
                 ]);
-            if ($lawyer_id) {
+            
+            if ($lawyer_id && $lawyer_id != -1) {
                 $calender_event_ids = EventParticipants::where("lawyer_id", $lawyer_id)->pluck("calender_event_id")->toArray();
-                $events =  $events->whereIn("id", $calender_event_ids);
+                $events = $events->whereIn("id", $calender_event_ids);
             }
-
+    
             if ($case_id) {
                 $events = $events->where("legal_case_id", $case_id);
             }
-
+    
             $events = $events->get();
-
+    
             foreach ($events as $event) {
                 $event->unique_id = Str::uuid();
                 foreach ($event->participants as $participant) {
@@ -110,38 +122,38 @@ class CalenderController extends Controller
                 }
             }
         }
-
+    
         $legal_cases = LegalCase::with("case_type", "nature_of_claim", "lawyers", "case_stage");
         if ($case_id) {
             $legal_cases = $legal_cases->where('id', $case_id);
         }
-        if ($lawyer_id) {
+        if ($lawyer_id && $lawyer_id != -1) {
             $legal_cases = $legal_cases->where('lawyer_id', $lawyer_id);
         }
-
+    
         $tasks_ = [];
         $activities = [];
-
+    
         if ($display_tasks) {
             foreach ($tasks as $task) {
                 $item = new stdClass;
                 $item->title = $task->title;
-
+    
                 $start_date_time_split = explode(" ", $task->start_datetime);
                 $end_date_time_split = explode(" ", $task->end_datetime);
-
+    
                 if (count($start_date_time_split) > 0) {
                     $start_date_time_split = $start_date_time_split[0] . ' 20:00:00';
                 }
-
+    
                 if (count($end_date_time_split) > 0) {
                     $end_date_time_split = $end_date_time_split[0] . ' 20:00:00';
                 }
-
+    
                 $item->start = $start_date_time_split;
                 $item->end = $end_date_time_split;
                 $item->unique_id = Str::uuid();
-
+    
                 $item->meta = [
                     "status" => $task->status,
                     "id" => $task->id,
@@ -155,28 +167,28 @@ class CalenderController extends Controller
                 array_push($tasks_, $item);
             }
         }
-
+    
         if ($display_activities) {
             $activities = LegalCaseActivities::with("participants")
                 ->whereBetween("date", [
                     Carbon::parse($start_date)->toDateString(),
                     Carbon::parse($end_date)->toDateString()
                 ]);
-
-            if ($lawyer_id) {
+    
+            if ($lawyer_id && $lawyer_id != -1) {
                 $calender_activity_ids = LegalCaseActivityParticipants::where("lawyer_id", $lawyer_id)->pluck("legal_case_activity_id")->toArray();
                 if (empty($calender_activity_ids)) {
                     $calender_activity_ids = [-1321, -10000000000];
                 }
                 $activities = $activities->whereIn("id", $calender_activity_ids);
             }
-
+    
             if ($case_id) {
                 $activities = $activities->where("legal_case_id", $case_id);
             }
-
+    
             $activities = $activities->get();
-
+    
             foreach ($activities as $activity) {
                 $activity->unique_id = Str::uuid();
                 foreach ($activity->participants as $participant) {
@@ -189,23 +201,23 @@ class CalenderController extends Controller
                 }
             }
         }
-
+    
         $lawyers = User::where('role_id', 2)->orWhere("is_external_counsel", 1)->get();
         $external_advocates = ExternalFirm::all();
         $legal_cases = LegalCase::select("id", "title", "case_number", "court_name", "case_stage_id");
-
+    
         if ($request->lawyer_id && $request->lawyer_id != -1) {
             $lawyer_cases_ids = LegalCaseLawyer::where('lawyer_id', $request->lawyer_id)->pluck('legal_case_id')->toArray();
             $filed_by_cases_ids = LegalCase::where('user_id', $request->lawyer_id)->pluck('id')->toArray();
             $ids = array_merge($lawyer_cases_ids, $filed_by_cases_ids);
             $legal_cases = $legal_cases->whereIn("id", $ids);
         }
-
+    
         $legal_cases = $legal_cases->get();
-
+    
         $event_categories = EventCategories::all();
-
-        return Inertia::render('calender/Index', [
+    
+        return Inertia::render('calender/Master', [
             "lawyer_id" => $lawyer_id,
             "tasks" => $tasks_,
             "activities" => $activities,
@@ -220,7 +232,6 @@ class CalenderController extends Controller
                 'start_date' => $start_date,
                 'end_date' => $end_date
             ],
-            'calendar_type' => 'master'
         ]);
     }
 
@@ -385,7 +396,7 @@ class CalenderController extends Controller
 
         $event_categories = EventCategories::all();
 
-        return Inertia::render('calender/Index', [
+        return Inertia::render('calender/Mine', [
             "lawyer_id" => $user_id,
             "tasks" => $tasks_,
             "activities" => $activities,
@@ -501,12 +512,14 @@ class CalenderController extends Controller
     public function store_event(Request $request)
     {
         $current_user_id = $request->user()->id;
-
+    
         $validator = Validator::make($request->all(), [
             "name" => "required|min:2",
             "start_date" => "required|min:2",
             "end_date" => "required|min:2",
+            "upload_files.*" => "file|max:10240", // 10MB max per file
         ]);
+        
         if ($validator->fails()) {
             return response()->json(
                 [
@@ -516,16 +529,44 @@ class CalenderController extends Controller
                 422
             );
         }
-
+    
         $duplicateEvent = CalenderEvents::where(DB::raw('lower(title)'), '=', strtolower($request->name))
             ->where('added_by', $current_user_id)
             ->where('start_date', Carbon::parse($request->start_date))
             ->where('end_date', Carbon::parse($request->end_date))
             ->count();
+            
         if ($duplicateEvent > 0) {
             return response()->json(['error' => true, 'message' => "You have another event with the same start date and end date"], 422);
         }
-
+    
+        // Handle file uploads
+        $attachments = [];
+        if ($request->hasFile('upload_files')) {
+            foreach ($request->file('upload_files') as $file) {
+                if ($file->isValid()) {
+                    // Generate unique filename
+                    $filename = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
+                    $filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
+                    
+                    // Store file in storage/app/public/events
+                    $path = $file->storeAs('events', $filename, 'public');
+                    
+                    // Store file details
+                    $attachments[] = [
+                        'original_name' => $file->getClientOriginalName(),
+                        'stored_name' => $filename,
+                        'path' => 'storage/' . $path,
+                        'full_path' => storage_path('app/public/' . $path),
+                        'extension' => $file->getClientOriginalExtension(),
+                        'size' => $file->getSize(),
+                        'mime_type' => $file->getMimeType(),
+                        'uploaded_at' => now()->toDateTimeString(),
+                    ];
+                }
+            }
+        }
+    
         $item = new CalenderEvents();
         $item->title = $request->name;
         $item->description = $request->description;
@@ -534,50 +575,46 @@ class CalenderController extends Controller
         $item->legal_case_id = $request->case_id;
         $item->category_id = $request->category;
         $item->priority = $request->priority;
-        //$item->user_id = $request->user_id;
-        //$item->external_advocate_id = $request->external_advocate_id;
         $item->added_by = $current_user_id;
-        $item->attachments = $request->upload_files;
-        $item->alert = true; // $request->alert;
-        $item->is_public = true; // $request->is_public;
-
+        $item->attachments = !empty($attachments) ? json_encode($attachments) : null;
+        $item->alert = true;
+        $item->is_public = true;
+    
         $item->save();
-
-
-        foreach ($request->lawyers as $lawyer_id) {
-            $participant = new EventParticipants();
-            $participant->calender_event_id = $item->id;
-            $participant->lawyer_id = $lawyer_id;
-            $participant->save();
+    
+        // Handle lawyer participants
+        if ($request->has('lawyers') && is_array($request->lawyers)) {
+            foreach ($request->lawyers as $lawyer_id) {
+                $participant = new EventParticipants();
+                $participant->calender_event_id = $item->id;
+                $participant->lawyer_id = $lawyer_id;
+                $participant->save();
+            }
         }
-
-
+    
         $event_ = CalenderEvents::with("participants")->find($item->id);
         $event_->unique_id = Str::uuid();
-
+    
+        // Decode attachments for response
+        if ($event_->attachments) {
+            $event_->attachments = json_decode($event_->attachments, true);
+        }
+    
         foreach ($event_->participants as $participant) {
             if ($participant->lawyer_id) {
-                $lawyer = User::where("id", $participant->lawyer_id)->selectRaw("id,calling_code,phone,email,CONCAT(first_name, ' ', IFNULL(middle_name, ''), ' ', last_name) AS gen_name")->first();
+                $lawyer = User::where("id", $participant->lawyer_id)
+                    ->selectRaw("id,calling_code,phone,email,CONCAT(first_name, ' ', IFNULL(middle_name, ''), ' ', last_name) AS gen_name")
+                    ->first();
                 $participant->lawyer = $lawyer;
             }
             if ($participant->external_advocate_id) {
-                $external_advocate = ExternalFirm::where("id", $participant->external_advocate_id)->selectRaw("id,firm_name as gen_name")->first();
+                $external_advocate = ExternalFirm::where("id", $participant->external_advocate_id)
+                    ->selectRaw("id,firm_name as gen_name")
+                    ->first();
                 $participant->advocate = $external_advocate;
             }
         }
-
-
-
-
-
-
-        return response()->json(
-            [
-                "error" => false,
-                "message" => "Calender event added successfully",
-                "event" => $event_,
-            ],
-            200
-        );
+    
+        return redirect()->back()->with('success', 'Calendar event added successfully');
     }
 }

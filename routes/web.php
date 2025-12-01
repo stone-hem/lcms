@@ -35,16 +35,27 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('reports.case_reports');
 
     Route::get('/cases_by_lawyer_report', [ReportController::class, 'cases_by_lawyer_report'])->name('reports.reports_by_lawyer');
+    
     Route::get('/calendar/master', [CalenderController::class, 'get_master_calendar'])->name('calendar.master');
     Route::get('/calendar/mine', [CalenderController::class, 'get_my_calendar'])->name('calendar.mine');
+    Route::post('/calender/store/event', [CalenderController::class, 'store_event']);
+    Route::put('calender/edit/event/{id}', [CalenderController::class, 'edit_event']);
+    Route::delete('calender/delete/event/{id}', [CalenderController::class, 'delete_event']);
 
     Route::get('/task/kanban', [TaskController::class, 'get_kanban_view'])->name('kanban.index');
 
 
 
     Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');
-
-
+    Route::post('/tasks', [TaskController::class, 'store'])->name('tasks.store');
+    Route::put('/tasks', [TaskController::class, 'update'])->name('tasks.update');
+    Route::delete('/tasks/{id}', [TaskController::class, 'destroy'])->name('tasks.destroy');
+    Route::post('/tasks/{task}/favourite', [TaskController::class, 'change_favourite_status'])
+        ->name('tasks.favourite');
+    
+    Route::patch('/tasks/{task}/status/{status}', [TaskController::class, 'update_task_status'])
+        ->name('tasks.status.update');
+        
     Route::get('/documents', [FileController::class, 'files'])->name('files.index');
     
     // Legal Cases Routes

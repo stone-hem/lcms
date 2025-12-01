@@ -8,13 +8,14 @@ import { Label } from '@/components/ui/label'
 import Select from '@/components/form/Select.vue'
 import MultiSelect from '@/components/form/MultiSelect.vue'
 import DatePicker from '@/components/form/DatePicker.vue'
+import TextArea from '@/components/form/TextArea.vue'
 import { Upload, X } from 'lucide-vue-next'
 
 const props = defineProps<{
   open: boolean
   task: any
   cases?: any[]
-  users?: any[]
+  lawyers?: any[] 
 }>()
 
 const emit = defineEmits(['close', 'success'])
@@ -32,18 +33,19 @@ const form = useForm({
 
 const selectedFiles = ref<File[]>([])
 
+// Populate form when task changes
 watch(
   () => props.task,
   (task) => {
-    if (task) {
-      form.title = task.title
-      form.description = task.description || ''
-      form.legal_case_id = task.legal_case_id
-      form.assignee_ids = task.assignees?.map((a: any) => a.id) || []
-      form.due_date = task.due_date || ''
-      form.priority = task.priority?.toString() || '1'
-      form.status = task.status?.toString() || '0'
-    }
+    if (!task) return
+
+    form.title = task.title ?? ''
+    form.description = task.description ?? ''
+    form.legal_case_id = task.legal_case_id ?? null
+    form.assignee_ids = task.assignees?.map((a: any) => a.id) ?? []
+    form.due_date = task.due_date ?? ''
+    form.priority = (task.priority ?? 1).toString()
+    form.status = (task.status ?? 0).toString()
   },
   { immediate: true }
 )
@@ -57,10 +59,11 @@ const submit = () => {
   if (form.due_date) formData.append('due_date', form.due_date)
   formData.append('priority', form.priority)
   formData.append('status', form.status)
-  form.assignee_ids.forEach(id => formData.append('assignee_ids[]', id.toString()))
-  selectedFiles.value.forEach(file => formData.append('attachments[]', file))
 
-  form.post(route('tasks.update', props.task.id), {
+  form.assignee_ids.forEach((id) => formData.append('assignee_ids[]', id.toString()))
+  selectedFiles.value.forEach((file) => formData.append('attachments[]', file))
+
+  form.post(`/tasks/${props.task.id}`, {
     data: formData,
     forceFormData: true,
     onSuccess: () => {
@@ -81,23 +84,26 @@ const submit = () => {
 
       <form @submit.prevent="submit" class="space-y-6">
         <div class="grid grid-cols-2 gap-6">
+          <!-- Title -->
           <div class="col-span-2">
             <Label>Title <span class="text-red-600">*</span></Label>
-            <Input v-model="form.title" required />
+            <Input v-model="form.title" required placeholder="Enter task title" />
           </div>
 
+          <!-- Description -->
           <div class="col-span-2">
             <Label>Description</Label>
-            <textarea
+            <TextArea
               v-model="form.description"
               rows="4"
-              class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              placeholder="Task details..."
             />
           </div>
 
+          <!-- Related Case -->
           <div>
             <Label>Related Case</Label>
-            <Select v-model="form.legal_case_id">
+            <Select v-model="form.legal_case_id" placeholder="Select case (optional)">
               <option value="">No case</option>
               <option v-for="c in props.cases" :key="c.id" :value="c.id">
                 {{ c.case_number }} - {{ c.title }}
@@ -105,44 +111,63 @@ const submit = () => {
             </Select>
           </div>
 
+          <!-- Priority -->
           <div>
             <Label>Priority</Label>
             <Select v-model="form.priority">
               <option value="0">Low</option>
-              <option value="1">Medium</option>
+              <option value="1" selected>Medium</option>
               <option value="2">High</option>
               <option value="3">Urgent</option>
             </Select>
           </div>
 
+          <!-- Status -->
           <div>
             <Label>Status</Label>
             <Select v-model="form.status">
-              <option value="0">Open</option>
+              <option value="0" selected>Open</option>
               <option value="1">In Progress</option>
               <option value="2">Completed</option>
             </Select>
           </div>
 
+          <!-- Due Date -->
           <div>
             <Label>Due Date</Label>
-            <DatePicker v-model="form.due_date" placeholder="Select due date" />
+            <DatePicker v-model="form.due_date" placeholder="Select due date" required />
           </div>
 
+          <!-- Assignees -->
           <div class="col-span-2">
             <Label>Assign To</Label>
             <MultiSelect
               v-model="form.assignee_ids"
-              :options="props.users || []"
-              placeholder="Search lawyers..."
+              :options="props.lawyers || []"
+              placeholder="Search and select lawyers..."
               display-key="first_name"
               value-key="id"
               returnIdsOnly
             />
           </div>
 
+          <!-- Existing Attachments (optional display) -->
+          <div v-if="props.task?.attachments?.length" class="col-span-2">
+            <Label>Current Attachments</Label>
+            <div class="flex flex-wrap gap-2 mt-2">
+              <span
+                v-for="att in props.task.attachments"
+                :key="att.id"
+                class="inline-flex items-center gap-1 px-3 py-1 text-sm bg-gray-100 rounded-full"
+              >
+                {{ att.file_name }}
+              </span>
+            </div>
+          </div>
+
+          <!-- New Attachments -->
           <div class="col-span-2">
-            <Label>Attachments (New)</Label>
+            <Label>Add New Attachments</Label>
             <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
               <Upload class="mx-auto h-12 w-12 text-gray-400 mb-3" />
               <input
@@ -150,13 +175,16 @@ const submit = () => {
                 multiple
                 class="hidden"
                 id="edit-task-files"
-                @change="(e: any) => selectedFiles = Array.from(e.target.files)"
+                @change="(e: any) => selectedFiles.value = Array.from(e.target.files)"
               />
-              <label for="edit-task-files" class="cursor-pointer text-sm font-medium text-blue-600">
-                Click to add more files
+              <label
+                for="edit-task-files"
+                class="cursor-pointer text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                Click to upload files
               </label>
               <p class="text-xs text-gray-500 mt-2">
-                {{ selectedFiles.length ? `${selectedFiles.length} new file(s)` : 'No new files' }}
+                {{ selectedFiles.value.length ? `${selectedFiles.value.length} file(s) selected` : 'No new files chosen' }}
               </p>
             </div>
           </div>

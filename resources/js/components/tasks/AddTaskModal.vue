@@ -9,11 +9,14 @@ import Select from '@/components/form/Select.vue'
 import MultiSelect from '@/components/form/MultiSelect.vue'
 import DatePicker from '@/components/form/DatePicker.vue'
 import { Upload, X, UserPlus } from 'lucide-vue-next'
+import TextArea from '@/components/form/TextArea.vue'
+import { displayErrors } from '@/lib/errors'
 
 const props = defineProps<{
   open: boolean
   cases?: any[]
-  users?: any[]
+  users?: any[],
+  lawyers?: any[]
 }>()
 
 const emit = defineEmits(['close', 'success'])
@@ -23,7 +26,7 @@ const form = useForm({
   description: '',
   legal_case_id: null as number | null,
   assignee_ids: [] as number[],
-  due_date: '' as string,
+  end_datetime: '' as string,
   priority: '1',
   status: '0',
   attachments: [] as File[],
@@ -37,14 +40,14 @@ const submit = () => {
   formData.append('title', form.title)
   formData.append('description', form.description || '')
   if (form.legal_case_id) formData.append('legal_case_id', form.legal_case_id.toString())
-  if (form.due_date) formData.append('due_date', form.due_date)
+  if (form.end_datetime) formData.append('end_datetime', form.end_datetime)
   formData.append('priority', form.priority)
   formData.append('status', form.status)
 
   form.assignee_ids.forEach(id => formData.append('assignee_ids[]', id.toString()))
   selectedFiles.value.forEach(file => formData.append('attachments[]', file))
 
-  form.post(route('tasks.store'), {
+  form.post('/tasks', {
     data: formData,
     forceFormData: true,
     onSuccess: () => {
@@ -53,6 +56,9 @@ const submit = () => {
       emit('success')
       emit('close')
     },
+    onError: (error:any) => {
+        displayErrors(error)
+    }
   })
 }
 </script>
@@ -75,11 +81,11 @@ const submit = () => {
           <!-- Description -->
           <div class="col-span-2">
             <Label>Description</Label>
-            <textarea
+            <TextArea
               v-model="form.description"
               rows="4"
-              class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Task details..."
+              required
             />
           </div>
 
@@ -118,7 +124,7 @@ const submit = () => {
           <!-- Due Date -->
           <div>
             <Label>Due Date</Label>
-            <DatePicker v-model="form.due_date" placeholder="Select due date" />
+            <DatePicker v-model="form.end_datetime" placeholder="Select due date" :required="true"/>
           </div>
 
           <!-- Assignees -->
@@ -126,7 +132,7 @@ const submit = () => {
             <Label>Assign To</Label>
             <MultiSelect
               v-model="form.assignee_ids"
-              :options="props.users || []"
+              :options="lawyers || []"
               placeholder="Search and select lawyers..."
               display-key="first_name"
               value-key="id"

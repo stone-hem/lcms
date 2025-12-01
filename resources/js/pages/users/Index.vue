@@ -18,7 +18,6 @@ import {
 import { Plus } from 'lucide-vue-next';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { debounce } from 'lodash-es';
 import { ref, watch } from 'vue';
 
 interface User {
@@ -54,16 +53,16 @@ const page = usePage();
 const searchQuery = ref(props.filters.search);
 
 // Debounced search
-watch(searchQuery, debounce((value) => {
-  router.get(route('users.index'), {
-    search: value || null,
-    ic: props.filters.ic ? 1 : 0,
-    page: 1,
-  }, {
-    preserveState: true,
-    replace: true,
-  });
-}, 400));
+// watch(searchQuery, debounce((value) => {
+//   router.get(route('users.index'), {
+//     search: value || null,
+//     ic: props.filters.ic ? 1 : 0,
+//     page: 1,
+//   }, {
+//     preserveState: true,
+//     replace: true,
+//   });
+// }, 400));
 
 // Modals
 const selectedUser = ref<User | null>(null);

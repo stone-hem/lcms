@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import TextArea from '@/components/form/TextArea.vue'
+import MultiSelect from '@/components/form/MultiSelect.vue' // Import your multiselect
 
 const props = defineProps<{
   open: boolean
@@ -17,42 +18,91 @@ const emit = defineEmits(['close', 'success'])
 
 const files = ref<File[]>([])
 
-const form = useForm({
-  title: '',
-  description: '',
-  start_date: props.initialDate || '',
-  end_date: props.initialDate || '',
-  case_id: '',
-  category_id: '',
-  priority: 2,
-  lawyer_ids: [] as number[],
+// Format lawyers for multiselect
+const lawyerOptions = computed(() => {
+  return props.presets.lawyers.map((lawyer: any) => ({
+    id: lawyer.id,
+    name: lawyer.name || `${lawyer.first_name} ${lawyer.last_name}`
+  }))
 })
 
-const submit = () => {
-  const formData = new FormData()
-  Object.entries(form.data()).forEach(([key, value]) => {
-    if (Array.isArray(value)) {
-      value.forEach(v => formData.append(`${key}[]`, v))
-    } else {
-      formData.append(key, value as string)
-    }
-  })
-  files.value.forEach((file, i) => formData.append(`attachments[${i}]`, file))
+const form = useForm({
+  name: '',
+  description: '',
+  start_date: props.initialDate || '',
+  start_time: '09:00', // Added time fields
+  end_date: props.initialDate || '',
+  end_time: '10:00', // Added time fields
+  case_id: '',
+  category_id: '',
+  priority: 1,
+  lawyers: [] as number[], // Change to array for multiselect
+})
 
-  form.post('/calendar/events', {
+// Handle lawyer selection from multiselect
+const handleLawyersChange = (selectedLawyerIds: number[]) => {
+  form.lawyers = selectedLawyerIds
+}
+
+// Handle file selection
+const handleFileChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (target.files) {
+    files.value = Array.from(target.files)
+  }
+}
+
+const submit = () => {
+  // Format datetime strings
+  const startDateTime = `${form.start_date} ${form.start_time}:00`
+  const endDateTime = `${form.end_date} ${form.end_time}:00`
+
+  const formData = new FormData()
+  
+  // Add basic fields
+  formData.append('name', form.name)
+  formData.append('description', form.description)
+  formData.append('start_date', startDateTime)
+  formData.append('end_date', endDateTime)
+  formData.append('case_id', form.case_id)
+  formData.append('category', form.category_id)
+  formData.append('priority', form.priority)
+  
+  // Add lawyers as array
+  form.lawyers.forEach(lawyerId => {
+    formData.append('lawyers[]', lawyerId.toString())
+  })
+  
+  // Add files
+  files.value.forEach((file, index) => {
+    formData.append('upload_files[]', file)
+  })
+
+  form.post('/calender/store/event', {
     data: formData,
     forceFormData: true,
+    preserveScroll: true,
     onSuccess: () => {
       form.reset()
       files.value = []
       emit('success')
+    },
+    onError: (errors) => {
+      console.error('Error creating event:', errors)
     }
   })
+}
+
+// Reset form when dialog closes
+const handleClose = () => {
+  form.reset()
+  files.value = []
+  emit('close')
 }
 </script>
 
 <template>
-  <Dialog :open="open" @update:open="emit('close')">
+  <Dialog :open="open" @update:open="handleClose">
     <DialogContent class="max-w-4xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>Add New Event</DialogTitle>
@@ -61,17 +111,28 @@ const submit = () => {
       <form @submit.prevent="submit" class="space-y-5">
         <div>
           <Label>Title <span class="text-red-600">*</span></Label>
-          <Input v-model="form.title" required />
+          <Input v-model="form.name" required />
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <Label>Start Date</Label>
+            <Label>Start Date <span class="text-red-600">*</span></Label>
             <Input v-model="form.start_date" type="date" required />
           </div>
           <div>
-            <Label>End Date</Label>
+            <Label>Start Time <span class="text-red-600">*</span></Label>
+            <Input v-model="form.start_time" type="time" required />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <Label>End Date <span class="text-red-600">*</span></Label>
             <Input v-model="form.end_date" type="date" required />
+          </div>
+          <div>
+            <Label>End Time <span class="text-red-600">*</span></Label>
+            <Input v-model="form.end_time" type="time" required />
           </div>
         </div>
 
@@ -96,10 +157,24 @@ const submit = () => {
         </div>
 
         <div>
-          <Label>Lawyers</Label>
-          <select v-model="form.lawyer_ids" multiple class="w-full px-3 py-2 border rounded-lg h-32">
-            <option v-for="l in presets.lawyers" :key="l.id" :value="l.id">{{ l.name }}</option>
+          <Label>Priority</Label>
+          <select v-model="form.priority" class="w-full px-3 py-2 border rounded-lg">
+            <option value="1">Low</option>
+            <option value="2">Medium</option>
+            <option value="3">High</option>
           </select>
+        </div>
+
+        <div>
+          <Label>Lawyers</Label>
+          <MultiSelect
+            :options="lawyerOptions"
+            v-model="form.lawyers"
+            :return-ids-only="true"
+            label="Select Lawyers"
+            placeholder="Select lawyers..."
+            @change="handleLawyersChange"
+          />
         </div>
 
         <div>
@@ -109,21 +184,31 @@ const submit = () => {
 
         <div>
           <Label>Attachments</Label>
-          <input
-            type="file"
-            multiple
-            @change="e => files = Array.from(e.target.files || [])"
-            class="w-full px-3 py-2 border rounded-lg bg-white"
-          />
-          <div v-if="files.length" class="mt-2 text-sm text-slate-600">
-            {{ files.length }} file(s) selected
+          <div class="space-y-2">
+            <input
+              type="file"
+              multiple
+              @change="handleFileChange"
+              class="w-full px-3 py-2 border rounded-lg bg-white"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+            />
+            <div v-if="files.length" class="mt-2 space-y-1">
+              <div class="text-sm text-slate-600">
+                {{ files.length }} file(s) selected:
+              </div>
+              <ul class="text-xs text-slate-500 space-y-1">
+                <li v-for="(file, index) in files" :key="index">
+                  {{ file.name }} ({{ (file.size / 1024).toFixed(2) }} KB)
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" @click="emit('close')">Cancel</Button>
-          <Button type="submit" :disabled="form.processing">
-            {{ form.processing ? 'Saving...' : 'Create' }}
+          <Button type="button" variant="outline" @click="handleClose">Cancel</Button>
+          <Button type="submit" :disabled="form.processing" class="bg-blue-600 hover:bg-blue-700">
+            {{ form.processing ? 'Saving...' : 'Create Event' }}
           </Button>
         </DialogFooter>
       </form>

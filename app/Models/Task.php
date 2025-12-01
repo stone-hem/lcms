@@ -9,6 +9,22 @@ use Illuminate\Database\Eloquent\Model;
 class Task extends Model
 {
     use HasFactory;
+    
+    protected $fillable = [
+        'title',
+        'description',
+        'status',
+        'start_datetime',
+        'end_datetime',
+        'priority',
+        'tags',
+        'faved_by',
+        'user_id',
+        'parent_id',
+        'legal_case_id',
+        'faved_by'
+    ];
+
 
     protected $casts = [
         "tags" => "json",

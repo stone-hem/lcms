@@ -19,7 +19,6 @@ return new class extends Migration
             $table->id();
 
             $table->foreignIdFor(Event::class)->nullable()->constrained();
-            //$table->foreignIdFor(Task::class,"parent_id")->nullable()->constrained(); //if task has parent id, then this is a child task, if not this is a parent task
             $table->foreignIdFor(CaseActivity::class)->nullable()->constrained();
             $table->foreignIdFor(User::class)->nullable()->constrained();
 

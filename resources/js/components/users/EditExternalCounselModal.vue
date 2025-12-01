@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import axios from 'axios'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useForm } from '@inertiajs/vue3';
+
 
 const props = defineProps<{ open: boolean; firm: any }>()
 const emit = defineEmits(['close', 'success'])
@@ -22,6 +23,19 @@ watch(() => props.firm, (newFirm) => {
     canLogin.value = !!newFirm.user
   }
 })
+
+const form = useForm({
+    id: firm.value.id,
+    firm_name: firm.value.firm_name,
+    bank_name: firm.value.bank_name,
+    bank_branch: firm.value.bank_branch,
+    bank_account_number: firm.value.bank_account_number,
+    postal_address: firm.value.postal_address,
+    kra_pin: firm.value.kra_pin,
+    can_login: canLogin.value,
+    user_id: firm.value.user?.id || null,
+    email: firm.value.user?.email || '',
+});
 
 const submit = async () => {
   try {
@@ -43,7 +57,7 @@ const submit = async () => {
       payload.new_password = newPassword.value
     }
 
-    await axios.put(`/api/external-firms/${firm.value.id}`, payload)
+    await form.put(`/api/external-firms/${firm.value.id}`, payload)
     emit('success')
     emit('close')
   } catch (err: any) {
