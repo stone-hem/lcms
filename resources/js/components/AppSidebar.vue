@@ -45,7 +45,7 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'Case Reports',
-        href: '/case_reports',
+        href: '/reports/case-reports',
         icon: FileText,
     },
     {

@@ -17,8 +17,6 @@ use DateTime;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
-use stdClass;
-
 class ReportController extends Controller
 {
 
@@ -90,156 +88,293 @@ class ReportController extends Controller
 
     public function cases_report(Request $request)
     {
-
-        $lawyer_ids = $request->lawyer_ids;
-
-        $lawyer_ids = explode(",", $lawyer_ids);
-
-        $start_date = $request->start_date;
-        $end_date  = $request->end_date;
-        $all_time = $request->all_time;
-        $case_stage = $request->cs ?? -1;
-        $nature_of_claim = $request->nof ?? -1;
-        $case_type = $request->ct ?? -1;
-        $is_internal = $request->is_internal ?? -1;
-
-
-
-
-        $has = $request->has ? explode(",", $request->has) : [];
-        $does_not_have = $request->does_not_have ? explode(",", $request->does_not_have) : [];
-
-
-
-        if ($all_time) {
+        // === SAFELY parse comma-separated values ===
+        $lawyer_ids = $request->filled('lawyer_ids')
+            ? array_filter(explode(',', $request->lawyer_ids))
+            : [];
+    
+        $has = $request->filled('has')
+            ? array_filter(explode(',', $request->has))
+            : [];
+    
+        $does_not_have = $request->filled('does_not_have')
+            ? array_filter(explode(',', $request->does_not_have))
+            : [];
+    
+        // === Date handling ===
+        $start_date = $request->input('start_date');
+        $end_date = $request->input('end_date');
+        $all_time = $request->boolean('all_time', false);
+    
+        if ($all_time || !$start_date || !$end_date) {
             $start_date = '1970-01-01';
-            $end_date = '2090-12-12';
+            $end_date = '2090-12-31';
         }
-
-        $items = LegalCase::withTrashed()->with('filed_by', 'lawyers', 'contingent_liability', 'case_type', 'nature_of_claim', "case_stage", "interim_fee_note", "final_fee_note", "judgement_attachments", "dg_approval_attachments");
-
-        if (count($lawyer_ids) > 0 && $lawyer_ids[0] != -1) {
-            $lawyer_cases_ids = LegalCaseLawyer::whereIn('lawyer_id', $lawyer_ids)->pluck('legal_case_id')->toArray();
-            $filed_by_cases_ids = LegalCase::whereIn('user_id', $lawyer_ids)->pluck('id')->toArray();
-            $ids = array_merge($lawyer_cases_ids, $filed_by_cases_ids);
-            $items = $items->whereIn("id", $ids);
+    
+        // === Other filters with proper defaults ===
+        $case_stage = $request->input('case_stage', -1);
+        $nature_of_claim = $request->input('nature_of_claim', -1);
+        $case_type = $request->input('case_type', -1);
+        $is_internal = $request->input('is_internal', -1);
+    
+        // === Base query ===
+        $query = LegalCase::withTrashed()
+            ->with([
+                'filed_by',
+                'lawyers',
+                'contingent_liability',
+                'case_type',
+                'nature_of_claim',
+                'case_stage',
+                'interim_fee_note',
+                'final_fee_note',
+                'judgement_attachments',
+                'dg_approval_attachments',
+                'procurement_authority_documents',
+                'sla'
+            ]);
+    
+        // === Apply filters only when meaningful values exist ===
+        if (!empty($lawyer_ids)) {
+            $lawyer_cases_ids = LegalCaseLawyer::whereIn('lawyer_id', $lawyer_ids)->pluck('legal_case_id');
+            $filed_by_cases_ids = LegalCase::whereIn('user_id', $lawyer_ids)->pluck('id');
+            $ids = $lawyer_cases_ids->merge($filed_by_cases_ids)->unique();
+            $query->whereIn('id', $ids);
         }
-
+    
         if ($case_stage != -1) {
-            $items = $items->where("case_stage_id", $case_stage);
+            $query->where('case_stage_id', $case_stage);
         }
         if ($case_type != -1) {
-            $items = $items->where("case_type_id", $case_type);
+            $query->where('case_type_id', $case_type);
         }
         if ($nature_of_claim != -1) {
-            $items = $items->where("nature_of_claim_id", $nature_of_claim);
+            $query->where('nature_of_claim_id', $nature_of_claim);
         }
         if ($is_internal != -1) {
-            $items = $items->where("is_internal", $is_internal);
+            $query->where('is_internal', $is_internal);
         }
-
-
-
+    
+        // === Document existence filters ===
         $hasFilters = [
-            "1" => "dg_approval_attachments",
-            "2" => "procurement_authority_documents",
-            "3" => "sla",
-            "4" => "interim_fee_note",
-            "5" => "judgement_attachments",
-            "6" => "final_fee_note"
+            '1' => 'dg_approval_attachments',
+            '2' => 'procurement_authority_documents',
+            '3' => 'sla',
+            '4' => 'interim_fee_note',
+            '5' => 'judgement_attachments',
+            '6' => 'final_fee_note'
         ];
+    
         foreach ($has as $filter) {
             if (isset($hasFilters[$filter])) {
-                $items->whereHas($hasFilters[$filter]);
+                $query->whereHas($hasFilters[$filter]);
             }
         }
-
-        // Apply "does not have" filters for related data
+    
         foreach ($does_not_have as $filter) {
             if (isset($hasFilters[$filter])) {
-                $items->whereDoesntHave($hasFilters[$filter]);
+                $query->whereDoesntHave($hasFilters[$filter]);
             }
         }
-
-
-
-        $items = $items->whereBetween('date_of_filing', [
-            Carbon::parse($start_date)->toDateString(),
-            Carbon::parse($end_date)->toDateString()
-        ])->get();
-
-        $ids = [];
-
-        foreach ($items as $item) {
-            array_push($ids, $item->id);
-        }
-
-        $total_contigent = ContingentLiability::whereIn("legal_case_id", $ids)->sum("amount");
-
-        return Inertia::render('reports/CaseReport', [
-            "items" => $items,
-            "total_contingent_liability" => $total_contigent,
+    
+        // === Date range ===
+        $query->whereBetween('date_of_filing', [
+            Carbon::parse($start_date)->startOfDay(),
+            Carbon::parse($end_date)->endOfDay(),
         ]);
-
+    
+        $items = $query->get();
+    
+        $total_contingent_liability = ContingentLiability::whereIn('legal_case_id', $items->pluck('id'))->sum('amount');
+    
+        if ($request->has('export') && $request->export === 'csv') {
+            return $this->exportToCSV($items);
+        }
+    
+        return Inertia::render('reports/CaseReport', [
+            'items' => $items,
+            'total_contingent_liability' => $total_contingent_liability,
+            'case_stages' => CaseStage::all(),
+            'lawyers' => User::whereIn('role_id', [2, 3])->get(),
+            'nature_of_claims' => NatureOfClaim::all(),
+            'case_types' => CaseType::all(),
+            'filters' => [
+                'start_date' => $request->start_date ?? '',
+                'end_date' => $request->end_date ?? '',
+                'all_time' => $all_time,
+                'case_stage' => $case_stage,
+                'nature_of_claim' => $nature_of_claim,
+                'case_type' => $case_type,
+                'is_internal' => $is_internal,
+                'lawyer_ids' => $lawyer_ids,
+                'has' => $has,
+                'does_not_have' => $does_not_have,
+            ]
+        ]);
+    }
+    
+    private function exportToCSV($items)
+    {
+        $fileName = 'case_reports_' . date('Y-m-d_H-i-s') . '.csv';
+        
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename=' . $fileName,
+        ];
+    
+        $callback = function() use ($items) {
+            $file = fopen('php://output', 'w');
+            
+            // Add BOM for UTF-8
+            fputs($file, $bom = (chr(0xEF) . chr(0xBB) . chr(0xBF)));
+            
+            // Headers
+            fputcsv($file, [
+                'ID',
+                'Case Title',
+                'Status',
+                'Amount',
+                'Case Type',
+                'Nature of Claim',
+                'Case Stage',
+                'Internal/External',
+                'Date of Filing',
+                'Updated At'
+            ]);
+    
+            // Data
+            foreach ($items as $item) {
+                fputcsv($file, [
+                    $item->id,
+                    $item->title,
+                    $item->status,
+                    $item->amount,
+                    $item->case_type->name ?? 'N/A',
+                    $item->nature_of_claim->name ?? 'N/A',
+                    $item->case_stage->name ?? 'N/A',
+                    $item->is_internal ? 'Internal' : 'External',
+                    $item->date_of_filing,
+                    $item->updated_at
+                ]);
+            }
+    
+            fclose($file);
+        };
+    
+        return response()->stream($callback, 200, $headers);
     }
 
+
+    
     public function cases_by_lawyer_report(Request $request)
     {
-
-        // $lawyer_ids = $request->lawyer_ids;
-        $start_date = $request->start_date;
-        $end_date  = $request->end_date;
-        $all_time = $request->all_time;
-
-        if ($all_time) {
+        // === Date Range Handling ===
+        $start_date = $request->input('start_date');
+        $end_date   = $request->input('end_date');
+        $all_time   = $request->boolean('all_time', false);
+    
+        if ($all_time || !$start_date || !$end_date) {
             $start_date = '1970-01-01';
-            $end_date = '2090-12-12';
+            $end_date   = '2090-12-31';
         }
-
-        $lawyers = User::whereIn('role_id', [2, 3])->get();
-
-        $case_stages = CaseStage::withTrashed()->select("id", "name")->get();
-
+    
+        $start = Carbon::parse($start_date)->startOfDay();
+        $end   = Carbon::parse($end_date)->endOfDay();
+    
+        // === Get all lawyers (role 2 = external, 3 = internal?) ===
+        $lawyers = User::whereIn('role_id', [2, 3])
+            ->select('id', 'name', 'email')
+            ->get();
+    
+        $case_stages = CaseStage::withTrashed()
+            ->select('id', 'name')
+            ->orderBy('id')
+            ->get();
+    
         foreach ($lawyers as $lawyer) {
-
-
-
-            $case_ids = LegalCaseLawyer::where('lawyer_id', $lawyer->id)->pluck('legal_case_id')->unique();
-
-            $number_of_cases = LegalCase::whereIn("id", $case_ids)
-                ->whereBetween('date_of_filing', [
-                    Carbon::parse($start_date)->toDateString(),
-                    Carbon::parse($end_date)->toDateString()
-                ])->count();
-
-            $lawyer->case_count = $number_of_cases;
-            $case_stages_reports = [];
-
-
-            foreach ($case_stages as $case_stage) {
-                $item = new stdClass;
-                $item->name = $case_stage->name;
-                $item->count =  0;
-                if (count($case_ids) > 0) {
-                    $number_of_cases_by_case_stage =
-                        LegalCase::where("case_stage_id", $case_stage->id)
-                        ->whereIn("id", $case_ids)
-                        ->whereBetween('date_of_filing', [
-                            Carbon::parse($start_date)->toDateString(),
-                            Carbon::parse($end_date)->toDateString()
-                        ])->count();
-
-                    $item->count = $number_of_cases_by_case_stage;
-                }
-                array_push($case_stages_reports, $item);
+            // Get all case IDs assigned to this lawyer (via pivot + filed_by)
+            $assigned_case_ids = LegalCaseLawyer::where('lawyer_id', $lawyer->id)
+                ->pluck('legal_case_id');
+    
+            $filed_by_case_ids = LegalCase::where('user_id', $lawyer->id)
+                ->pluck('id');
+    
+            $case_ids = $assigned_case_ids->merge($filed_by_case_ids)->unique();
+    
+            // Total cases in date range
+            $total_cases = LegalCase::whereIn('id', $case_ids)
+                ->whereBetween('date_of_filing', [$start, $end])
+                ->count();
+    
+            $lawyer->total_cases = $total_cases;
+    
+            // Breakdown by case stage
+            $stage_breakdown = [];
+            foreach ($case_stages as $stage) {
+                $count = LegalCase::whereIn('id', $case_ids)
+                    ->where('case_stage_id', $stage->id)
+                    ->whereBetween('date_of_filing', [$start, $end])
+                    ->count();
+    
+                $stage_breakdown[] = [
+                    'stage_name' => $stage->name,
+                    'count'      => $count,
+                ];
             }
-
-
-            $lawyer->case_stages_report = $case_stages_reports;
+    
+            $lawyer->stage_breakdown = $stage_breakdown;
         }
-        
-        return Inertia::render('reports/CaseByLawyer', [
-            "lawyers" => $lawyers
+    
+        // === CSV Export ===
+        if ($request->has('export') && $request->export === 'csv') {
+            return $this->exportLawyerReportToCSV($lawyers, $case_stages);
+        }
+    
+        return Inertia::render('reports/CasesByLawyer', [
+            'lawyers'       => $lawyers,
+            'case_stages'   => $case_stages,
+            'filters'       => [
+                'start_date' => $request->start_date ?? '',
+                'end_date'   => $request->end_date ?? '',
+                'all_time'   => $all_time,
+            ]
+        ]);
+    }
+    
+    // === CSV Export Helper ===
+    private function exportLawyerReportToCSV($lawyers, $case_stages)
+    {
+        $headers = [
+            'Lawyer Name',
+            'Total Cases',
+        ];
+    
+        foreach ($case_stages as $stage) {
+            $headers[] = $stage->name;
+        }
+    
+        $callback = function () use ($lawyers, $case_stages, $headers) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $headers);
+    
+            foreach ($lawyers as $lawyer) {
+                $row = [
+                    $lawyer->name,
+                    $lawyer->total_cases,
+                ];
+    
+                foreach ($lawyer->stage_breakdown as $breakdown) {
+                    $row[] = $breakdown['count'];
+                }
+    
+                fputcsv($file, $row);
+            }
+    
+            fclose($file);
+        };
+    
+        return response()->streamDownload($callback, 'cases_by_lawyer_report_' . now()->format('Y-m-d') . '.csv', [
+            'Content-Type' => 'text/csv',
         ]);
     }
 

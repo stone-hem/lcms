@@ -45,6 +45,8 @@ class LegalCase extends Model
         "meta" => "json",
         "notes" => "json"
     ];
+    
+    protected $appends = ['total_contingent_liability'];
 
 
     public function case_type()
@@ -164,4 +166,12 @@ class LegalCase extends Model
     {
         return $this->hasMany(CaseAttachment::class)->with('user:users.id,first_name,middle_name,last_name,calling_code,email,phone');
     }
+    
+    public function getTotalContingentLiabilityAttribute()
+    {
+        return $this->contingent_liability()->sum('amount');
+    }
+
+    
+    
 }

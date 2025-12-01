@@ -12,8 +12,8 @@ import CasePartiesAndFirmsTab from '@/components/cases/parties/CasePartiesAndFir
 import CaseActivityTab from '@/components/cases/activities/CaseActivityTab.vue'
 import CaseTasksTab from '@/components/cases/tasks/CaseTasksTab.vue'
 import CaseNotesTab from '@/components/cases/notes/CaseNotesTab.vue'
-import CaseAttachmentsTab from '@/components/attachments/CaseAttachmentsTab.vue'
-import CaseCalendarTab from '@/components/cases/calendar/CaseCalendarTab.vue'
+import CaseAttachmentsTab from '@/components/cases/attachments/CaseAttachmentsTab.vue'
+import CaseCalendarTab from '@/components/cases/calender/CaseCalendarTab.vue'
 
 const props = defineProps<{
   case: any,

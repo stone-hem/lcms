@@ -31,7 +31,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'my_analytics'])
         ->name('dashboard');
 
-    Route::get('/case_reports', [ReportController::class, 'cases_report'])
+    Route::get('/reports/case-reports', [ReportController::class, 'cases_report'])
             ->name('reports.case_reports');
 
     Route::get('/cases_by_lawyer_report', [ReportController::class, 'cases_by_lawyer_report'])->name('reports.reports_by_lawyer');
