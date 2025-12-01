@@ -120,7 +120,7 @@ const activeTab = ref('overview')
         <!-- Notes -->
         <div v-show="activeTab === 'notes'">
           <Card>
-            <CaseNotesTab :notes="caseData.notes" />
+            <CaseNotesTab :legalCaseId="caseData.id" :notes="caseData.notes" />
           </Card>
         </div>
 
