@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\LegalCase;
 
 use App\Helpers\QueryHelper;
+use App\Models\Attachment;
 use App\Models\CaseActivity;
 use App\Models\CaseSLA;
 use App\Models\FirmParty;
 use App\Models\IndividualParty;
 use App\Models\LegalCase\LegalCase;
 use App\Models\LegalCase\CaseAttachment;
+use App\Models\LegalCaseActivityType;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
@@ -44,7 +46,7 @@ class LegalCaseController extends Controller
 
     public function create(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+         $request->validate([
             'title' => 'required|min:2|unique:legal_cases',
             'case_number' => 'required|min:2|unique:legal_cases',
             'court_name' => 'required|min:2',
@@ -54,9 +56,6 @@ class LegalCaseController extends Controller
             'case_type_id' => 'required|exists:case_types,id',
         ]);
 
-        if ($validator->fails()) {
-            return redirect()->back()->withErrors($validator)->withInput();
-        }
 
         $lastserial = LegalCase::get()->last();
         if ($lastserial) {
@@ -70,20 +69,20 @@ class LegalCaseController extends Controller
 
         $dupTitleCount = LegalCase::where(DB::raw('lower(title)'), '=', strtolower($request->title))->count();
         if ($dupTitleCount > 0) {
-            return redirect()->back()->with('error', 'Another case has the same title')->withInput();
+            return back()->withErrors('error', 'Another case has the same title')->withInput();
         }
         $dupCaseNumberCount = LegalCase::where(DB::raw('lower(case_number)'), '=', strtolower($request->case_number))->count();
         if ($dupCaseNumberCount > 0) {
-            return redirect()->back()->with('error', 'Another case has the same case number')->withInput();
+            return back()->withErrors('error', 'Another case has the same case number')->withInput();
         }
 
         if ($request->is_internal) {
             if (count($request->lawyer_id) == 0) {
-                return redirect()->back()->with('error', 'No lawyers selected')->withInput();
+                return back()->withErrors('error', 'No lawyers selected')->withInput();
             }
         } else {
             if (count($request->external_advocate_ids) == 0) {
-                return redirect()->back()->with('error', 'No external advocates selected')->withInput();
+                return back()->withErrors('error', 'No external advocates selected')->withInput();
             }
         }
 
@@ -196,52 +195,6 @@ class LegalCaseController extends Controller
             $attachment->save();
         }
 
-        if ($request->parties != null) {
-            foreach ($request->parties as $clientData) {
-                $client = IndividualParty::where('email', strtolower($clientData['email']))->orWhere('phone', strtolower($clientData['phone']))->first();
-
-                if (!$client) {
-                    $client = new IndividualParty();
-                }
-
-                $client->first_name = $clientData['first_name'];
-                $client->middle_name = $clientData['middle_name'];
-                $client->last_name = $clientData['last_name'];
-                $client->phone = strtolower($clientData['phone']);
-                $client->email = strtolower($clientData['email']);
-                $client->physical_address = $clientData['physical_address'];
-                $client->postal_address = $clientData['postal_address'];
-                $client->save();
-
-                $case_individual_party = new CaseIndividualParty();
-                $case_individual_party->legal_case_id = $legalcase->id;
-                $case_individual_party->party_type_id = $clientData['party_type'] ? $clientData['party_type']['value'] : null;
-                $case_individual_party->individual_party_id = $client->id;
-                $case_individual_party->save();
-            }
-        }
-
-        if ($request->firms != null) {
-            foreach ($request->firms as $firmData) {
-                $client = FirmParty::where('email', strtolower($firmData['email']))->orWhere('phone', strtolower($firmData['phone']))->first();
-                if (!$client) {
-                    $client = new FirmParty();
-                }
-                $client->name = $firmData['firm_name'];
-                $client->phone = $firmData['phone'];
-                $client->email = $firmData['email'];
-                $client->physical_address = $firmData['physical_address'];
-                $client->postal_address = $firmData['postal_address'];
-                $client->save();
-
-                $case_firm_party = new CaseFirmParty();
-                $case_firm_party->legal_case_id = $legalcase->id;
-                $case_firm_party->party_type_id = $firmData['party_type'] ? $firmData['party_type']['value'] : null;
-                $case_firm_party->firm_party_id = $client->id;
-                $case_firm_party->save();
-            }
-        }
-
         return redirect()->back()->with('success', 'Case created successfully');
     }
 
@@ -325,7 +278,7 @@ class LegalCaseController extends Controller
         $party_types = PartyType::all();
         $lawyers = User::where('role_id', 2)->get();
         $document_types = DocumentTypes::all();
-        $case_activities = CaseActivity::all();
+        $case_activities = LegalCaseActivities::all();
         $external_advocates = User::where('is_external_counsel', 1)->get();
         $base_file_path = asset('storage') . '/uploads/temp/';
 
@@ -364,25 +317,25 @@ class LegalCaseController extends Controller
 
         $dupTitleCount = LegalCase::where(DB::raw('lower(title)'), '=', strtolower($request->title))->where('id', '!=', $id)->count();
         if ($dupTitleCount > 0) {
-            return redirect()->back()->with('error', 'Another case has the same title')->withInput();
+            return redirect()->back()->withErrors('error', 'Another case has the same title')->withInput();
         }
         $dupCaseNumberCount = LegalCase::where(DB::raw('lower(case_number)'), '=', strtolower($request->case_number))->where('id', '!=', $id)->count();
         if ($dupCaseNumberCount > 0) {
-            return redirect()->back()->with('error', 'Another case has the same case number')->withInput();
+            return redirect()->back()->withErrors('error', 'Another case has the same case number')->withInput();
         }
 
         $legalcase = LegalCase::withTrashed()->find($id);
         if (!$legalcase) {
-            return redirect()->back()->with('error', 'Legal case not found');
+            return redirect()->back()->withErrors('error', 'Legal case not found');
         }
 
         if ($request->is_internal) {
             if (count($request->lawyer_id) == 0) {
-                return redirect()->back()->with('error', 'No lawyers selected')->withInput();
+                return redirect()->back()->withErrors('error', 'No lawyers selected')->withInput();
             }
         } else {
             if (count($request->external_advocate_ids) == 0) {
-                return redirect()->back()->with('error', 'No external advocates selected')->withInput();
+                return redirect()->back()->withErrors('error', 'No external advocates selected')->withInput();
             }
         }
 
@@ -508,34 +461,22 @@ class LegalCaseController extends Controller
     public function show($id)
     {
         $case = LegalCase::with([
-            'contingent_liability','sla','individual_parties','firm_parties',
+            'contingent_liability','sla','parties','activities',
             'case_type', 'nature_of_claim', 'case_stage',
             'tasks.assignees',
             'lawyers',
-            'attachments',
-            'procurement_authority_documents',
             'interim_fee_note',
             'final_fee_note',
-            'judgement_attachments',
-            'dg_approval_attachments',
             'events'
         ])->findOrFail($id);
         
-        if ($case) {
-            foreach ($case->individual_parties as $key => $value) {
-                $party = IndividualParty::find($value->individual_party_id);
-                $value->party = $party;
-            }
-            foreach ($case->firm_parties as $key => $value) {
-                $party = FirmParty::find($value->firm_party_id);
-                $value->party = $party;
-            }
-        }
+        // $attachments = Attachment::where('legal_case_id', $id)->get();
+        
 
         return Inertia::render('case/View', [
             'case' => $case,
             'partyTypes' => PartyType::all(),
-            'case_activity_types' => CaseActivity::all(),
+            'case_activity_types' => LegalCaseActivityType::all(),
         ]);
     }
 

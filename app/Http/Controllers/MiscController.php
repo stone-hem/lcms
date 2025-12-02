@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\LegalCaseActivityType;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\LegalCase\CaseType;
@@ -23,7 +24,7 @@ class MiscController extends Controller
                 'case_types'       => CaseType::withTrashed()->get(),
                 'nature_of_claims' => NatureOfClaim::withTrashed()->get(),
                 'party_types'      => PartyType::withTrashed()->get(),
-                'case_activities'  => CaseActivity::with('after')->withTrashed()->get(),
+                'case_activity_types'  => LegalCaseActivityType::get(),
                 'document_types'   => DocumentTypes::withTrashed()->get(),
                 'case_stages'      => CaseStage::with('after')->withTrashed()->get(),
                 'event_categories' => EventCategories::withTrashed()->get(),

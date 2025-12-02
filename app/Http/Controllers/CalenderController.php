@@ -5,11 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\CalenderEvents;
 use App\Models\EventCategories;
 use App\Models\EventParticipants;
-use App\Models\ExternalFirm;
 use App\Models\LegalCase\LegalCase;
 use App\Models\LegalCase\LegalCaseLawyer;
 use App\Models\LegalCaseActivities;
 use App\Models\LegalCaseActivityParticipants;
+use App\Models\Party\Party;
 use Illuminate\Http\Request;
 use App\Models\Task;
 use App\Models\TaskAssignees;
@@ -115,10 +115,7 @@ class CalenderController extends Controller
                         $lawyer = User::where("id", $participant->lawyer_id)->selectRaw("id,calling_code,phone,email,CONCAT(first_name, ' ', IFNULL(middle_name, ''), ' ', last_name) AS gen_name")->first();
                         $participant->lawyer = $lawyer;
                     }
-                    if ($participant->external_advocate_id) {
-                        $external_advocate = ExternalFirm::where("id", $participant->external_advocate_id)->selectRaw("id,firm_name as gen_name")->first();
-                        $participant->advocate = $external_advocate;
-                    }
+                   
                 }
             }
         }
@@ -203,7 +200,7 @@ class CalenderController extends Controller
         }
     
         $lawyers = User::where('role_id', 2)->orWhere("is_external_counsel", 1)->get();
-        $external_advocates = ExternalFirm::all();
+        $external_advocates = Party::all();
         $legal_cases = LegalCase::select("id", "title", "case_number", "court_name", "case_stage_id");
     
         if ($request->lawyer_id && $request->lawyer_id != -1) {
@@ -300,10 +297,6 @@ class CalenderController extends Controller
                         $lawyer = User::where("id", $participant->lawyer_id)->selectRaw("id,calling_code,phone,email,CONCAT(first_name, ' ', IFNULL(middle_name, ''), ' ', last_name) AS gen_name")->first();
                         $participant->lawyer = $lawyer;
                     }
-                    if ($participant->external_advocate_id) {
-                        $external_advocate = ExternalFirm::where("id", $participant->external_advocate_id)->selectRaw("id,firm_name as gen_name")->first();
-                        $participant->advocate = $external_advocate;
-                    }
                 }
             }
         }
@@ -383,7 +376,7 @@ class CalenderController extends Controller
         }
 
         $lawyers = User::where('role_id', 2)->orWhere("is_external_counsel", 1)->get();
-        $external_advocates = ExternalFirm::all();
+        $external_advocates = Party::all();
         $legal_cases = LegalCase::select("id", "title", "case_number", "court_name", "case_stage_id");
 
         // For "My Calendar", only show cases assigned to current user

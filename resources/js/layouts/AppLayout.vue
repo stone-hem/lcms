@@ -14,8 +14,15 @@ withDefaults(defineProps<Props>(), {
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbs">
-       
+        <Toaster  />
+
         <slot />
     </AppLayout>
-     <Toaster />
 </template>
+
+<style scoped>
+/* Alternative approach: Use a scoped style */
+:deep(.sonner-toast) {
+    z-index: 9999 !important;
+}
+</style>

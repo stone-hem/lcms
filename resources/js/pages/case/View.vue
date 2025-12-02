@@ -99,9 +99,11 @@ const activeTab = ref('overview')
         <!-- Parties & Firms -->
         <div v-show="activeTab === 'parties'">
           <Card>
-            <CasePartiesAndFirmsTab :partyTypes="partyTypes" :legalCaseId="caseData.id" :parties="caseData.individual_parties" :firms="caseData.firm_parties" />
+            <CasePartiesAndFirmsTab :partyTypes="partyTypes" :legalCaseId="caseData.id" :parties="caseData.parties" />
           </Card>
         </div>
+        
+        
 
         <!-- Activity -->
         <div v-show="activeTab === 'activity'">

@@ -46,7 +46,7 @@ class UserController extends Controller
         if ($user) {
             $user->restore();
         }
-        return response()->json(["error" => false, "message" => "User activated successfully"]);
+        return redirect()->back()->with('success', 'User activated successfully');
     }
 
 
@@ -235,7 +235,7 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+          $request->validate([
             "email" => "required|email|unique:users,email|unique:lawyers,email|regex:/(.+)@(.+)\.(.+)/i",
             "first_name" => "required|min:2",
             "calling_code" => "required",
@@ -246,38 +246,15 @@ class UserController extends Controller
 
         if ($request->enable_login) {
             if (strlen($request->password) < 6) {
-                return response(
-                    [
-                        "error" => true,
-                        "message" => "Password length must be equal to 6",
-                    ],
-                    422
-                );
+                return back()->with('error', 'Password length must be equal to 6');
             }
         }
-        if ($validator->fails()) {
-            return response(
-                [
-                    "error" => true,
-                    "message" => $validator->errors()->toArray(),
-                    "recommendation" =>
-                    "Fill all required fields correctly while observing rules",
-                    "payload" => $validator->errors()->toArray(),
-                ],
-                422
-            );
-        }
+        
 
         $user_phone_duplicate_count = User::where("calling_code", $request->calling_code)->where("phone", $request->phone)->count();
 
         if ($user_phone_duplicate_count > 0) {
-            return response(
-                [
-                    "error" => true,
-                    "message" => "User with phone number already exists",
-                ],
-                422
-            );
+            return back()->with('error', 'User with phone number already exists');
         }
 
 

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CalenderController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExternalFirmController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\KnowledgeBaseController;
 use App\Http\Controllers\LegalCase\LegalCaseController;
@@ -91,25 +92,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
     
     
-    // Individual Party Routes
-    Route::post('/parties/individual', [PartyController::class, 'createIndividual']);
-    Route::put('/parties/individual', [PartyController::class, 'updateIndividual']);
-    Route::delete('/parties/individual', [PartyController::class, 'destroyIndividual']);
     
     // Firm Party Routes
-    Route::post('/parties/firm', [PartyController::class, 'createFirm']);
-    Route::put('/parties/firm', [PartyController::class, 'updateFirm']);
-    Route::delete('/parties/firm', [PartyController::class, 'destroyFirm']);
+    Route::post('/parties', [PartyController::class, 'storeParty']);
+    Route::put('/parties/{id}', [PartyController::class, 'updateParty']);
+    Route::delete('/parties/{id}', [PartyController::class, 'destroyParty']);
 
 
 
-    Route::get('/external_council', [SettingsController::class, 'external_firms'])->name('council.external');
-    Route::get('/external_council', [SettingsController::class, 'external_firms']);
-    Route::post('/external_council', [SettingsController::class, 'store_external_firm']);
-    Route::put('/external_council/{id}', [SettingsController::class, 'update_external_firm']);
-    Route::put('/external_council/activate/{id}', [SettingsController::class, 'activate_external_firm']);
-    Route::put('/external_council/deactivate/{id}', [SettingsController::class, 'deactivate_external_firm']);
-    Route::delete('/external_council/{id}', [SettingsController::class, 'delete_external_firm']);
+    Route::get('/external_council', [ExternalFirmController::class, 'index'])->name('council.external');
+    Route::post('/external_council', [ExternalFirmController::class, 'store']);
+    Route::put('/external_council/{externalFirm}', [ExternalFirmController::class, 'update']);
+    Route::delete('/external_council/{externalFirm}', [ExternalFirmController::class, 'destroy']);
 
     Route::get('/internal_council', [UserController::class, 'internal_counsel'])->name('council.internal');
 

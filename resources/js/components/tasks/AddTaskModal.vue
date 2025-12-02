@@ -16,7 +16,8 @@ const props = defineProps<{
   open: boolean
   cases?: any[]
   users?: any[],
-  lawyers?: any[]
+  lawyers?: any[],
+  legalCaseId?: number | null
 }>()
 
 const emit = defineEmits(['close', 'success'])
@@ -24,7 +25,7 @@ const emit = defineEmits(['close', 'success'])
 const form = useForm({
   title: '',
   description: '',
-  legal_case_id: null as number | null,
+  legal_case_id: props.legalCaseId || null as number | null,
   assignee_ids: [] as number[],
   end_datetime: '' as string,
   priority: '1',
@@ -39,7 +40,7 @@ const submit = () => {
 
   formData.append('title', form.title)
   formData.append('description', form.description || '')
-  if (form.legal_case_id) formData.append('legal_case_id', form.legal_case_id.toString())
+  if (form.legal_case_id && props.legalCaseId!=null) formData.append('legal_case_id', form.legal_case_id.toString())
   if (form.end_datetime) formData.append('end_datetime', form.end_datetime)
   formData.append('priority', form.priority)
   formData.append('status', form.status)
@@ -69,6 +70,23 @@ const submit = () => {
       <DialogHeader>
         <DialogTitle>Create New Task</DialogTitle>
       </DialogHeader>
+      
+      <div v-if="$page.props.errors && Object.keys($page.props.errors).length > 0" class="mx-8 mt-6">
+            <div class="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 space-y-2">
+              <div class="flex items-center gap-2 font-semibold">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                </svg>
+                <span>There were errors with your submission</span>
+              </div>
+              <ul class="ml-7 list-disc space-y-1 text-sm">
+                <li v-for="(error, field) in $page.props.errors" :key="field">
+                  {{ error }}
+                </li>
+              </ul>
+            </div>
+          </div>
+
 
       <form @submit.prevent="submit" class="space-y-6">
         <div class="grid grid-cols-2 gap-6">
@@ -90,7 +108,7 @@ const submit = () => {
           </div>
 
           <!-- Related Case -->
-          <div>
+          <div v-if="!props.legalCaseId">
             <Label>Related Case</Label>
             <Select v-model="form.legal_case_id" placeholder="Select case (optional)">
               <option value="">No case</option>
@@ -141,7 +159,7 @@ const submit = () => {
           </div>
 
           <!-- Attachments -->
-          <div class="col-span-2">
+          <!-- <div class="col-span-2">
             <Label>Attachments</Label>
             <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
               <Upload class="mx-auto h-12 w-12 text-gray-400 mb-3" />
@@ -162,7 +180,7 @@ const submit = () => {
                 {{ selectedFiles.length ? `${selectedFiles.length} file(s) selected` : 'No files chosen' }}
               </p>
             </div>
-          </div>
+          </div> -->
         </div>
 
         <DialogFooter>

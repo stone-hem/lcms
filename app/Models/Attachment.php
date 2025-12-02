@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Models\Party;
+namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Party extends Model
+class Attachment extends Model
 {
     //
 }

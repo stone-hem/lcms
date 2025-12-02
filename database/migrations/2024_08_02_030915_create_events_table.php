@@ -2,6 +2,8 @@
 
 use App\Models\CaseActivity;
 use App\Models\LegalCase\LegalCase;
+use App\Models\LegalCaseActivities;
+use App\Models\LegalCaseActivityType;
 use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -17,7 +19,7 @@ return new class extends Migration
         Schema::create('events', function (Blueprint $table) {
             $table->id();
             $table->foreignIdFor(LegalCase::class)->constrained();
-            $table->foreignIdFor(CaseActivity::class)->constrained()->cascadeOnDelete();
+            $table->foreignIdFor(LegalCaseActivities::class)->nullable()->constrained();
             $table->foreignIdFor(User::class)->constrained();
             $table->string('title');
             $table->string('description');

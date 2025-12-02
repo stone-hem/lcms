@@ -16,16 +16,11 @@ import {
   Phone,
   MapPin
 } from 'lucide-vue-next'
-import AddIndividualModal from '@/components/cases/parties/AddIndividualModal.vue'
-import EditIndividualModal from '@/components/cases/parties/EditIndividualModal.vue'
-import DeleteIndividualModal from '@/components/cases/parties/DeleteIndividualModal.vue'
-import AddFirmModal from '@/components/cases/parties/AddFirmModal.vue'
-import EditFirmModal from '@/components/cases/parties/EditFirmModal.vue'
-import DeleteFirmModal from '@/components/cases/parties/DeleteFirmModal.vue'
+import DeleteModal from '@/components/cases/parties/DeleteModal.vue'
+import GenericPartyModal from '@/components/cases/parties/AddEditParty.vue'
 
 const props = defineProps<{
   parties?: any[]
-  firms?: any[]
   legalCaseId: number,
   partyTypes: any[]
 }>()
@@ -38,37 +33,47 @@ const filteredParties = computed(() => {
   if (!searchQuery.value) return props.parties
   
   return props.parties.filter(party => 
-    party.party?.first_name?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-    party.party?.last_name?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-    party.party?.email?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+    party.first_name?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+    party.last_name?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+    party.email?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
     party.party_type?.name?.toLowerCase().includes(searchQuery.value.toLowerCase())
   )
 })
 
 const filteredFirms = computed(() => {
-  if (!props.firms) return []
-  if (!searchQuery.value) return props.firms
+  if (!props.parties) return []
+  if (!searchQuery.value) return props.parties
   
-  return props.firms.filter(firm =>
-    firm.party?.name?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-    firm.party?.email?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+  return props.parties.filter(firm =>
+    firm.name?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+    firm.email?.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
     firm.party_type?.name?.toLowerCase().includes(searchQuery.value.toLowerCase())
   )
 })
 
-const modals = {
-  addIndividual: ref(false),
-  editIndividual: ref(false),
-  deleteIndividual: ref(false),
-  addFirm: ref(false),
-  editFirm: ref(false),
-  deleteFirm: ref(false),
+// Modal states
+const addEditModal = ref(false)
+const deleteModal = ref(false)
+const selectedParty = ref(null)
+const modalType = ref<'individual' | 'firm'>('individual') // for add
+
+const openAdd = (type: 'individual' | 'firm') => {
+  modalType.value = type
+  selectedParty.value = null
+  addEditModal.value = true
 }
 
-const selected = {
-  individual: ref(null),
-  firm: ref(null),
+const openEdit = (party: any) => {
+  selectedParty.value = party
+  addEditModal.value = true
 }
+
+const openDelete = (party: any) => {
+  selectedParty.value = party
+  deleteModal.value = true
+}
+
+
 // Format phone number for display
 const formatPhone = (phone: string) => {
   if (!phone) return 'Not provided'
@@ -97,16 +102,11 @@ const reload = () => router.reload({ only: ['parties', 'firms'] })
         />
       </div>
       <div class="flex gap-2">
-        <Button @click="modals.addIndividual.value = true" class="flex items-center gap-2">
-          <User class="h-4 w-4" />
-          Add Party
-        </Button>
-        <Button @click="modals.addFirm.value = true" class="flex items-center gap-2">
-          <Building class="h-4 w-4" />
-          Add Firm
-        </Button>
+          <Button @click="openAdd('individual')">Add Party</Button>
+        <Button @click="openAdd('firm')">Add Firm</Button>
       </div>
     </div>
+    
 
     <!-- Parties Section -->
     <Card>
@@ -128,7 +128,7 @@ const reload = () => router.reload({ only: ['parties', 'firms'] })
         <div v-if="!parties?.length" class="text-center py-8 text-muted-foreground">
           <Users class="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p>No parties added yet</p>
-          <Button @click="modals.addIndividual.value = true" variant="outline" class="mt-4">
+          <Button @click="openAdd('individual')" variant="outline" class="mt-4">
             <Plus class="h-4 w-4 mr-2" />
             Add First Party
           </Button>
@@ -145,9 +145,9 @@ const reload = () => router.reload({ only: ['parties', 'firms'] })
               <div class="flex items-start justify-between">
                 <div>
                   <h3 class="font-medium text-foreground">
-                    {{ party.party?.first_name }} 
-                    {{ party.party?.middle_name ? party.party.middle_name + ' ' : '' }}
-                    {{ party.party?.last_name }}
+                    {{ party.first_name }} 
+                    {{ party.middle_name ? party.middle_name + ' ' : '' }}
+                    {{ party.last_name }}
                   </h3>
                   <Badge v-if="party.party_type" variant="outline" class="mt-1 text-xs">
                     {{ party.party_type.name }}
@@ -158,23 +158,23 @@ const reload = () => router.reload({ only: ['parties', 'firms'] })
               <!-- Contact Information -->
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div class="space-y-2">
-                  <div v-if="party.party?.email" class="flex items-center gap-2 text-muted-foreground">
+                  <div v-if="party.email" class="flex items-center gap-2 text-muted-foreground">
                     <Mail class="h-4 w-4" />
-                    <span class="truncate">{{ party.party.email }}</span>
+                    <span class="truncate">{{ party.email }}</span>
                   </div>
-                  <div v-if="party.party?.phone" class="flex items-center gap-2 text-muted-foreground">
+                  <div v-if="party.phone" class="flex items-center gap-2 text-muted-foreground">
                     <Phone class="h-4 w-4" />
-                    <span>{{ formatPhone(party.party.phone) }}</span>
+                    <span>{{ formatPhone(party.phone) }}</span>
                   </div>
                 </div>
                 <div class="space-y-2">
-                  <div v-if="party.party?.physical_address" class="flex items-center gap-2 text-muted-foreground">
+                  <div v-if="party.physical_address" class="flex items-center gap-2 text-muted-foreground">
                     <MapPin class="h-4 w-4" />
-                    <span class="truncate">{{ formatAddress(party.party.physical_address) }}</span>
+                    <span class="truncate">{{ formatAddress(party.physical_address) }}</span>
                   </div>
-                  <div v-if="party.party?.postal_address" class="flex items-center gap-2 text-muted-foreground">
+                  <div v-if="party.postal_address" class="flex items-center gap-2 text-muted-foreground">
                     <MapPin class="h-4 w-4" />
-                    <span class="truncate">{{ formatAddress(party.party.postal_address) }}</span>
+                    <span class="truncate">{{ formatAddress(party.postal_address) }}</span>
                   </div>
                 </div>
               </div>
@@ -182,22 +182,12 @@ const reload = () => router.reload({ only: ['parties', 'firms'] })
 
             <!-- Action Buttons -->
             <div class="flex items-center gap-2 ml-4">
-              <Button 
-              @click="selected.individual = party; modals.editIndividual.value = true"
-                variant="ghost" 
-                size="icon"
-                class="h-8 w-8"
-              >
-                <Edit class="h-4 w-4" />
-              </Button>
-              <Button 
-                @click="selected.individual = party; modals.deleteIndividual.value = true" 
-                variant="ghost" 
-                size="icon"
-                class="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 class="h-4 w-4" />
-              </Button>
+                <Button size="icon" variant="ghost" @click="openEdit(party)">
+                    <Edit class="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" class="text-destructive" @click="openDelete(party)">
+                      <Trash2 class="h-4 w-4" />
+                    </Button>
             </div>
           </div>
 
@@ -232,7 +222,7 @@ const reload = () => router.reload({ only: ['parties', 'firms'] })
         <div v-if="!firms?.length" class="text-center py-8 text-muted-foreground">
           <Building class="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p>No firms added yet</p>
-          <Button @click="modals.addFirm.value = true" variant="outline" class="mt-4">
+          <Button  @click="openAdd('firm')" variant="outline" class="mt-4">
             <Plus class="h-4 w-4 mr-2" />
             Add First Firm
           </Button>
@@ -284,22 +274,12 @@ const reload = () => router.reload({ only: ['parties', 'firms'] })
 
             <!-- Action Buttons -->
             <div class="flex items-center gap-2 ml-4">
-              <Button 
-              @click="selected.firm = firm; modals.editFirm.value = true"
-                variant="ghost" 
-                size="icon"
-                class="h-8 w-8"
-              >
-                <Edit class="h-4 w-4" />
-              </Button>
-              <Button 
-              @click="selected.firm = firm; modals.deleteFirm.value = true"
-                variant="ghost" 
-                size="icon"
-                class="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 class="h-4 w-4" />
-              </Button>
+                <Button size="icon" variant="ghost" @click="openEdit(party)">
+                    <Edit class="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" class="text-destructive" @click="openDelete(party)">
+                      <Trash2 class="h-4 w-4" />
+                    </Button>
             </div>
           </div>
 
@@ -315,50 +295,22 @@ const reload = () => router.reload({ only: ['parties', 'firms'] })
     </Card>
   </div>
   
-  <AddIndividualModal
-      :open="modals.addIndividual.value"
+  
+  <GenericPartyModal
+      :open="addEditModal"
+      :party="selectedParty"
+      :type="modalType"
+      :partyTypes="partyTypes"
       :legalCaseId="legalCaseId"
-      :partyTypes="partyTypes"
-      @close="modals.addIndividual.value = false"
-      @success="reload"
+      @close="addEditModal = false"
+      @success="() => { addEditModal = false; reload() }"
     />
   
-    <EditIndividualModal
-      :open="modals.editIndividual.value"
-      :party="selected.individual"
-      :partyTypes="partyTypes"
-      @close="modals.editIndividual.value = false"
-      @success="reload"
-    />
-  
-    <DeleteIndividualModal
-      :open="modals.deleteIndividual.value"
-      :party="selected.individual"
-      @close="modals.deleteIndividual.value = false"
-      @deleted="reload"
-    />
-  
-    <AddFirmModal
-      :open="modals.addFirm.value"
-      :legalCaseId="legalCaseId"
-      :partyTypes="partyTypes"
-      @close="modals.addFirm.value = false"
-      @success="reload"
-    />
-  
-    <EditFirmModal
-      :open="modals.editFirm.value"
-      :firm="selected.firm"
-      :party-types="partyTypes"
-      @close="modals.editFirm.value = false"
-      @success="reload"
-    />
-  
-    <DeleteFirmModal
-      :open="modals.deleteFirm.value"
-      :firm="selected.firm"
-      @close="modals.deleteFirm.value = false"
-      @deleted="reload"
+    <DeleteModal
+      :open="deleteModal"
+      :party="selectedParty"
+      @close="deleteModal = false"
+      @deleted="() => { deleteModal = false; reload() }"
     />
 </template>
 

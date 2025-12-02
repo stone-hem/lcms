@@ -2,11 +2,10 @@
 
 namespace App\Models\LegalCase;
 
-use App\Models\CaseActivity;
-use App\Models\CaseFirmParty;
-use App\Models\CaseIndividualParty;
+use App\Models\Attachment;
 use App\Models\CaseStage;
 use App\Models\Event;
+use App\Models\LegalCaseActivities;
 use App\Models\LegalFees\ContingentLiability;
 use App\Models\LegalCase\CaseStageInformation;
 use App\Models\LegalCase\CaseType as LegalCaseCaseType;
@@ -19,6 +18,7 @@ use App\Models\LegalCaseProcurementAuthorityDocuments;
 use App\Models\Party\Party;
 use App\Models\Task;
 use App\Models\User;
+use File;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -108,16 +108,6 @@ class LegalCase extends Model
     }
 
 
-    public function individual_parties()
-    {
-        return $this->hasMany(CaseIndividualParty::class); //->with('party:individual_parties.id,first_name,middle_name,last_name,calling_code,email,phone,physical_address,postal_address');
-    }
-
-    public function firm_parties()
-    {
-        return $this->hasMany(CaseFirmParty::class); //->with('party:individual_parties.id,name,calling_code,email,phone,physical_address,postal_address');
-    }
-
     public function case_stage()
     {
 
@@ -126,7 +116,13 @@ class LegalCase extends Model
 
     public function parties()
     {
-        return $this->hasMany(Party::class);
+        return $this->belongsToMany(
+               Party::class,
+               'legal_case_parties',   // pivot table
+               'legal_case_id',        // FK on pivot referring to this model
+               'party_id'              // FK on pivot referring to Party model
+           )->withPivot('party_type_id') // if you want to access party_type_id
+             ->withTimestamps();
     }
 
 
@@ -142,9 +138,9 @@ class LegalCase extends Model
             ->with('caseStage');
     }
 
-    public function caseActivities()
+    public function activities()
     {
-        return $this->hasMany(CaseActivity::class);
+        return $this->hasMany(LegalCaseActivities::class);
     }
 
     public function legalCaseLawyers()
@@ -164,7 +160,7 @@ class LegalCase extends Model
 
     public function attachments()
     {
-        return $this->hasMany(CaseAttachment::class)->with('user:users.id,first_name,middle_name,last_name,calling_code,email,phone');
+        return $this->hasMany(Attachment::class)->with('user:users.id,first_name,middle_name,last_name,calling_code,email,phone');
     }
     
     public function getTotalContingentLiabilityAttribute()

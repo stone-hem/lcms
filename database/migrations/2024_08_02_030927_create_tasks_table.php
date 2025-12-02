@@ -2,6 +2,7 @@
 
 use App\Models\CaseActivity;
 use App\Models\Event;
+use App\Models\LegalCaseActivities;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
@@ -19,14 +20,12 @@ return new class extends Migration
             $table->id();
 
             $table->foreignIdFor(Event::class)->nullable()->constrained();
-            $table->foreignIdFor(CaseActivity::class)->nullable()->constrained();
+            $table->foreignIdFor(LegalCaseActivities::class)->nullable()->constrained();
             $table->foreignIdFor(User::class)->nullable()->constrained();
 
-            $table->unsignedBigInteger('legal_case_id')->nullable(true);
-            $table->foreign('legal_case_id')->references('id')->on('legal_cases')->onDelete('cascade');
+            $table->foreignId('legal_case_id')->references('id')->on('legal_cases')->onDelete('cascade');
 
-            $table->unsignedBigInteger('parent_id')->nullable(true);
-            $table->foreign('parent_id')->references('id')->on('tasks')->onDelete('cascade');
+            $table->foreignId('parent_id')->references('id')->on('tasks')->onDelete('cascade');
 
             $table->string('title');
             $table->json("tags")->nullable(true);

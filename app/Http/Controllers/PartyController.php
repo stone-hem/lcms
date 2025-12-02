@@ -6,248 +6,215 @@ use App\Http\Requests\StorePartyRequest;
 use App\Http\Requests\UpdatePartyRequest;
 use App\Models\FirmParty;
 use App\Models\IndividualParty;
+use App\Models\LegalCase\LegalCaseParty;
 use App\Models\Party\Party;
 use App\Models\Party\PartyType;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Shared\Address;
+use Inertia\Inertia;
 
 class PartyController extends Controller
 {
-    // Individual Party Methods
-    public function createIndividual(Request $request)
+    public function storeParty(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email|unique:individual_parties,email|regex:/(.+)@(.+)\.(.+)/i',
-            'first_name' => 'required|min:2',
-            'last_name' => 'required|min:2',
-            'phone' => 'required|min:9|max:13|unique:individual_parties,phone',
-            'date_of_birth' => 'required',
-            'location' => 'required',
-            'gender' => 'required',
-            'party_type_id' => 'required|exists:party_types,id',
-            'legal_case_id' => 'required|exists:legal_cases,id'
-        ]);
-
+        $rules = [
+            'party_kind' => 'required|in:individual,firm',
+        
+            'email' => 'required|email|unique:parties,email',
+            'phone' => 'required|min:9|max:13|unique:parties,phone',
+        
+            'legal_case_id' => 'required|exists:legal_cases,id',
+            'party_type_id' => 'nullable|exists:party_types,id',
+        ];
+        
+        // individual validations
+        if ($request->party_kind === 'individual') {
+            $rules = array_merge($rules, [
+                'first_name' => 'required|min:2',
+                'last_name'  => 'required|min:2',
+                'gender'     => 'required',
+                'birth_date' => 'required',
+            ]);
+        }
+        
+        // firm validations
+        if ($request->party_kind === 'firm') {
+            $rules = array_merge($rules, [
+                'firm_name' => 'required|min:2',
+            ]);
+        }
+        
+        $validator = Validator::make($request->all(), $rules);
+        
         if ($validator->fails()) {
-            return $this->validationErrorResponse($validator);
+            return back()
+                ->withErrors($validator)
+                ->withInput();   // keeps form values
         }
 
+    
         try {
             DB::transaction(function () use ($request) {
-                $client = new IndividualParty();
-                $client->party_type_id = $request->input('party_type_id');
-                $client->first_name = $request->input('first_name');
-                $client->middle_name = $request->input('middle_name');
-                $client->last_name = $request->input('last_name');
-                $client->calling_code = '254';
-                $client->phone = $request->input('phone');
-                $client->email = $request->input('email');
-                $client->gender = $request->input('gender');
-                $client->birth_date = $request->input('date_of_birth');
-                $client->location = json_encode($request->input('location'));
-                $client->legal_case_id = $request->input('legal_case_id');
-                $client->save();
-
                 $party = new Party();
-                $party->table_name = 'individual_parties';
-                $party->table_id = $client->id;
-                $party->legal_case_id = $request->input('legal_case_id');
+    
+                $party->party_kind = $request->party_kind;
+                $party->calling_code = $request->calling_code ?? '254';
+                $party->phone = $request->phone;
+                $party->email = $request->email;
+                $party->photo_url = $request->photo_url ?? null;
+                $party->physical_address = $request->physical_address;
+                $party->postal_address = $request->postal_address;
+    
+                if ($request->party_kind === 'individual') {
+                    $party->first_name = $request->first_name;
+                    $party->middle_name = $request->middle_name;
+                    $party->last_name = $request->last_name;
+                    $party->gender = $request->gender;
+                    $party->birth_date = $request->birth_date;
+                }
+    
+                if ($request->party_kind === 'firm') {
+                    $party->firm_name = $request->firm_name;
+                }
+    
                 $party->save();
+    
+                // link to case
+                DB::table('legal_case_parties')->insert([
+                    'party_id' => $party->id,
+                    'party_type_id' => $request->party_type_id,
+                    'legal_case_id' => $request->legal_case_id,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
             });
-
-            return response()->json([
-                'status' => 200,
-                'message' => 'Individual party created successfully'
-            ], 200);
-
+    
+            return redirect()->back()->with('success', 'Party updated successfully');
+    
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            return back()->withErrors('errors', 'Failed to add');
         }
     }
 
-    public function updateIndividual(Request $request)
+    public function updateParty(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'id' => 'required|exists:individual_parties,id',
-            'email' => 'required|email|unique:individual_parties,email,' . $request->id . '|regex:/(.+)@(.+)\.(.+)/i',
-            'first_name' => 'required|min:2',
-            'last_name' => 'required|min:2',
-            'phone' => 'required|min:9|max:13|unique:individual_parties,phone,' . $request->id,
-            'date_of_birth' => 'required',
-            'location' => 'required',
-            'gender' => 'required',
-            'party_type_id' => 'required|exists:party_types,id',
-            'legal_case_id' => 'required|exists:legal_cases,id'
-        ]);
-
+        $party = Party::findOrFail($request->id);
+    
+        $rules = [
+            'email' => 'required|email|unique:parties,email,' . $party->id,
+            'phone' => 'required|min:9|max:13|unique:parties,phone,' . $party->id,
+        ];
+    
+        if ($party->party_kind === 'individual') {
+            $rules = array_merge($rules, [
+                'first_name' => 'required|min:2',
+                'last_name' => 'required|min:2',
+                'gender' => 'required',
+                'birth_date' => 'required',
+            ]);
+        }
+    
+        if ($party->party_kind === 'firm') {
+            $rules['firm_name'] = 'required|min:2';
+        }
+    
+        $validator = Validator::make($request->all(), $rules);
         if ($validator->fails()) {
-            return $this->validationErrorResponse($validator);
+            return back()
+                ->withErrors($validator)
+                ->withInput();
         }
-
+    
         try {
-            DB::transaction(function () use ($request) {
-                $client = IndividualParty::findOrFail($request->id);
-                $client->party_type_id = $request->input('party_type_id');
-                $client->first_name = $request->input('first_name');
-                $client->middle_name = $request->input('middle_name');
-                $client->last_name = $request->input('last_name');
-                $client->calling_code = '254';
-                $client->phone = $request->input('phone');
-                $client->email = $request->input('email');
-                $client->gender = $request->input('gender');
-                $client->birth_date = $request->input('date_of_birth');
-                $client->location = json_encode($request->input('location'));
-                $client->legal_case_id = $request->input('legal_case_id');
-                $client->save();
+            DB::transaction(function () use ($request, $party) {
+                $party->update($request->all());
             });
+    
+            return redirect()->back()->with('success', 'Party updated successfully');
 
-            return response()->json([
-                'status' => 200,
-                'message' => 'Individual party updated successfully'
-            ], 200);
-
+    
         } catch (\Exception $e) {
-            return $this->errorResponse($e);
+            return back()->withErrors('errors', 'failed to update');
         }
     }
-
-    public function destroyIndividual(Request $request)
+    public function destroyParty(Request $request)
     {
         try {
-            $client = IndividualParty::findOrFail($request->id);
-            $client->delete();
-
+            Party::findOrFail($request->id)->delete();
+    
             return response()->json([
-                'status' => 200,
-                'message' => 'Individual party deleted successfully'
+                'message' => 'Party deleted successfully'
             ], 200);
-
+    
         } catch (\Exception $e) {
             return $this->errorResponse($e);
         }
     }
-
-    // Firm Party Methods
-    public function createFirm(Request $request)
+    
+    public function external_firms(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email|unique:firm_parties,email|regex:/(.+)@(.+)\.(.+)/i',
-            'name' => 'required|min:2',
-            'phone' => 'required|min:9|max:13|unique:firm_parties,phone',
-            'location' => 'required',
-            'party_type_id' => 'required|exists:party_types,id',
-            'legal_case_id' => 'required|exists:legal_cases,id'
+        $items_per_page = $request->ipp ?? 10;
+        $search_query   = $request->s   ?? "";
+        $page           = $request->p   ?? 0;
+        $sort_by        = $request->sort_by ?? "legal_case_parties.created_at";
+        $order_by       = $request->order_by ?? "asc";
+        $start_date     = $request->sd ?? null;
+        $end_date       = $request->ed ?? null;
+    
+        // Base query: join parties so we can read firm details
+        $items = DB::table('legal_case_parties')
+            ->leftJoin('parties', 'parties.id', '=', 'legal_case_parties.party_id')
+            ->where('parties.party_kind', 'firm') // only firms
+            ->select(
+                'legal_case_parties.*',
+                'parties.name',
+                'parties.email',
+                'parties.phone',
+                'parties.calling_code',
+                'parties.photo_url',
+                'parties.physical_address',
+                'parties.postal_address',
+                'parties.meta'
+            );
+    
+        // Search filter
+        if (!empty($search_query)) {
+            $items->where(function ($q) use ($search_query) {
+                $q->where('parties.name', 'ILIKE', "%{$search_query}%")
+                  ->orWhere('parties.email', 'ILIKE', "%{$search_query}%")
+                  ->orWhere('parties.phone', 'ILIKE', "%{$search_query}%");
+            });
+        }
+    
+        // Date filter
+        if ($start_date && $end_date) {
+            $items->whereBetween('legal_case_parties.created_at', [$start_date, $end_date]);
+        }
+    
+        // Count BEFORE pagination
+        $item_count = $items->count();
+    
+        // Sorting
+        if ($sort_by) {
+            $items->orderBy($sort_by, $order_by);
+        }
+    
+        // Pagination (skip → offset)
+        $items = $items
+            ->skip($page)
+            ->take($items_per_page)
+            ->get();
+    
+        return Inertia::render('users/ExternalCounselIndex', [
+            'items'       => $items,
+            'total_count' => $item_count,
+            'filters'     => [
+                's' => $search_query,
+            ],
         ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator);
-        }
-
-        try {
-            DB::transaction(function () use ($request) {
-                $client = new FirmParty();
-                $client->party_type_id = $request->input('party_type_id');
-                $client->name = $request->input('name');
-                $client->calling_code = '254';
-                $client->phone = $request->input('phone');
-                $client->email = $request->input('email');
-                $client->location = json_encode($request->input('location'));
-                $client->legal_case_id = $request->input('legal_case_id');
-                $client->save();
-
-                $party = new Party();
-                $party->table_name = 'firm_parties';
-                $party->table_id = $client->id;
-                $party->legal_case_id = $request->input('legal_case_id');
-                $party->save();
-            });
-
-            return response()->json([
-                'status' => 200,
-                'message' => 'Firm party created successfully'
-            ], 200);
-
-        } catch (\Exception $e) {
-            return $this->errorResponse($e);
-        }
     }
 
-    public function updateFirm(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'id' => 'required|exists:firm_parties,id',
-            'email' => 'required|email|unique:firm_parties,email,' . $request->id . '|regex:/(.+)@(.+)\.(.+)/i',
-            'name' => 'required|min:2',
-            'phone' => 'required|min:9|max:13|unique:firm_parties,phone,' . $request->id,
-            'location' => 'required',
-            'party_type_id' => 'required|exists:party_types,id',
-            'legal_case_id' => 'required|exists:legal_cases,id'
-        ]);
 
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator);
-        }
-
-        try {
-            DB::transaction(function () use ($request) {
-                $client = FirmParty::findOrFail($request->id);
-                $client->party_type_id = $request->input('party_type_id');
-                $client->name = $request->input('name');
-                $client->calling_code = '254';
-                $client->phone = $request->input('phone');
-                $client->email = $request->input('email');
-                $client->location = json_encode($request->input('location'));
-                $client->legal_case_id = $request->input('legal_case_id');
-                $client->save();
-            });
-
-            return response()->json([
-                'status' => 200,
-                'message' => 'Firm party updated successfully'
-            ], 200);
-
-        } catch (\Exception $e) {
-            return $this->errorResponse($e);
-        }
-    }
-
-    public function destroyFirm(Request $request)
-    {
-        try {
-            $client = FirmParty::findOrFail($request->id);
-            $client->delete();
-
-            return response()->json([
-                'status' => 200,
-                'message' => 'Firm party deleted successfully'
-            ], 200);
-
-        } catch (\Exception $e) {
-            return $this->errorResponse($e);
-        }
-    }
-
-    // Helper Methods
-    private function validationErrorResponse($validator)
-    {
-        return response()->json([
-            'error' => true,
-            'status' => 403,
-            'code' => 'ACCESS_DENIED',
-            'message' => $validator->errors()->first(),
-            'recommendation' => 'Fill all required fields correctly while observing rules',
-            'payload' => $validator->errors()->toArray()
-        ], 403);
-    }
-
-    private function errorResponse($exception)
-    {
-        return response()->json([
-            'error' => true,
-            'message' => 'An error occurred during the operation',
-            'details' => $exception->getMessage()
-        ], 500);
-    }
 }

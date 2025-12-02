@@ -18,7 +18,6 @@ import {
 import { Plus } from 'lucide-vue-next'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { Head, router } from '@inertiajs/vue3'
-import { debounce } from 'lodash-es'
 import { ref, watch } from 'vue'
 
 interface User {
@@ -42,13 +41,13 @@ const props = withDefaults(defineProps<{
 
 const searchQuery = ref(props.filters.search)
 
-watch(searchQuery, debounce((value) => {
-  router.get(route('users.index'), {
-    search: value || null,
-    ic: 1, // Force internal counsel only
-    page: 1,
-  }, { preserveState: true, replace: true })
-}, 400))
+// watch(searchQuery, debounce((value) => {
+//   router.get(route('users.index'), {
+//     search: value || null,
+//     ic: 1, // Force internal counsel only
+//     page: 1,
+//   }, { preserveState: true, replace: true })
+// }, 400))
 
 const selectedUser = ref<User | null>(null)
 const showAdd = ref(false)

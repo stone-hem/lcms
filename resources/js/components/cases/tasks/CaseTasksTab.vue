@@ -19,6 +19,8 @@ import {
   User,
   Flag
 } from 'lucide-vue-next'
+import AddTaskModal from '@/components/tasks/AddTaskModal.vue'
+import EditTaskModal from '@/components/tasks/EditTaskModal.vue'
 
 const props = defineProps<{
   tasks?: any[]
@@ -26,6 +28,10 @@ const props = defineProps<{
 
 const searchQuery = ref('')
 const activeFilter = ref('all')
+const showAdd = ref(false)
+const showEdit = ref(false)
+const showView = ref(false)
+const selectedTask = ref<any>(null)
 
 // Status options with colors
 const statusOptions = [
@@ -117,11 +123,13 @@ const updateFilterCounts = computed(() => {
 
 // Empty handlers for buttons (to be implemented later)
 const handleAddTask = () => {
-  console.log('Add task clicked')
+    showAdd.value = true
 }
 
 const handleEditTask = (task: any) => {
-  console.log('Edit task:', task)
+    selectedTask.value = task
+    showEdit.value = true
+    showView.value = false
 }
 
 const handleDeleteTask = (task: any) => {
@@ -159,6 +167,8 @@ const isOverdue = (dueDate: string) => {
   if (!dueDate) return false
   return new Date(dueDate) < new Date()
 }
+
+
 </script>
 
 <template>
@@ -362,6 +372,23 @@ const isOverdue = (dueDate: string) => {
       </div>
     </div>
   </div>
+  
+  <AddTaskModal
+    :cases="cases"
+    :lawyers="lawyers"
+    :open="showAdd"
+    @close="showAdd = false"
+    @success="showAdd = false"
+  />
+
+  <EditTaskModal
+    :cases="cases"
+    :lawyers="lawyers"
+    :open="showEdit"
+    :task="selectedTask"
+    @close="showEdit = false"
+    @success="showEdit = false"
+  />
 </template>
 
 <style scoped>

@@ -70,6 +70,7 @@ const showAdd = ref(false);
 const showEdit = ref(false);
 const showDelete = ref(false);
 
+
 const openAdd = () => (showAdd.value = true);
 const openEdit = (user: User) => {
   selectedUser.value = user;
@@ -84,7 +85,13 @@ const closeAll = () => {
   selectedUser.value = null;
 };
 
-const refresh = () => router.visit(route('users.index'), { preserveState: true });
+const refresh = () => router.reload();
+
+const activateUser = async (user: User) => {
+
+  await router.put(`/user/activate/${user.id}`);
+  router.reload();
+};
 
 const formatDate = (date: string) =>
   date ? new Date(date).toLocaleDateString() : 'N/A';
@@ -154,6 +161,9 @@ const formatDate = (date: string) =>
                   <div class="flex justify-end gap-2">
                     <Button variant="outline" size="sm" @click="openEdit(user)">
                       Edit
+                    </Button>
+                    <Button variant="outline" size="sm" @click="activateUser(user)">
+                      {{ user.deleted_at ? 'Activate' : 'Deactivate' }}
                     </Button>
                     <Button
                       variant="destructive"

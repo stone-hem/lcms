@@ -36,6 +36,8 @@ return new class extends Migration
             
             $table->unsignedBigInteger('lawyer_id')->nullable(true);
             $table->foreign('lawyer_id')->references('id')->on('users')->nullOnDelete();
+            $table->timestamp('mention_date')->nullable(true);
+
 
             $table->json("activities")->nullable(true);
             $table->json("notes")->nullable(true);
